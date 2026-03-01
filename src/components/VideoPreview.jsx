@@ -77,12 +77,16 @@ export default function VideoPreview({
     const H = container.clientHeight
     if (W === 0 || H === 0) return
 
-    if (canvas.width !== W || canvas.height !== H) {
-      canvas.width = W
-      canvas.height = H
+    const dpr = window.devicePixelRatio || 1
+    const bW = Math.round(W * dpr)
+    const bH = Math.round(H * dpr)
+    if (canvas.width !== bW || canvas.height !== bH) {
+      canvas.width = bW
+      canvas.height = bH
     }
 
     const ctx = canvas.getContext('2d')
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     const bg = backgroundRef.current
     const pad = (paddingRef.current / 100) * Math.min(W, H) * 0.45
     const shadow = shadowIntensityRef.current

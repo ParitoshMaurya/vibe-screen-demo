@@ -5,7 +5,7 @@ import Timeline from './Timeline'
 import SettingsPanel from './SettingsPanel'
 import ExportDialog from './ExportDialog'
 import PlaybackControls from './PlaybackControls'
-import { ArrowLeft, Video, Download } from 'lucide-react'
+import { ArrowLeft, Video, Download, Expand, Shrink } from 'lucide-react'
 
 const GRADIENTS = [
   'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
@@ -37,8 +37,8 @@ export default function VideoEditor({ videoData, onBack }) {
   const [duration, setDuration] = useState(0)
 
   const [background, setBackground] = useState(GRADIENTS[0])
-  const [padding, setPadding] = useState(40)
-  const [borderRadius, setBorderRadius] = useState(12)
+  const [padding, setPadding] = useState(10)
+  const [borderRadius, setBorderRadius] = useState(10)
   const [shadowIntensity, setShadowIntensity] = useState(0.5)
 
   const [zoomRegions, setZoomRegions] = useState([])
@@ -47,12 +47,14 @@ export default function VideoEditor({ videoData, onBack }) {
   const [selectedRegionId, setSelectedRegionId] = useState(null)
   const [selectedRegionType, setSelectedRegionType] = useState(null)
 
-  const [aspectRatio, setAspectRatio] = useState('auto')
+  const [aspectRatio, setAspectRatio] = useState(16 / 9)
+  const [isPreview, setIsPreview] = useState(false)
 
   const [showExport, setShowExport] = useState(false)
   const [exportProgress, setExportProgress] = useState(null)
   const [isExporting, setIsExporting] = useState(false)
   const [exportError, setExportError] = useState(null)
+  const cancelExportRef = useRef(false)
 
   const nextIdRef = useRef(1)
 
@@ -222,6 +224,7 @@ export default function VideoEditor({ videoData, onBack }) {
     const wasPlaying = !video.paused
     video.pause()
 
+    let onVisibilityChange = null
     try {
       const ZOOM_SCALES_MAP = { 1: 1.25, 2: 1.5, 3: 1.8, 4: 2.2, 5: 3.5, 6: 5.0 }
       const FPS = 30
@@ -309,13 +312,19 @@ export default function VideoEditor({ videoData, onBack }) {
 
       const seekTo = (t) => new Promise((resolve) => {
         const onSeeked = () => { video.removeEventListener('seeked', onSeeked); resolve() }
-        video.addEventListener('seeked', onSeeked)
+        const timeout = setTimeout(() => { video.removeEventListener('seeked', onSeeked); resolve() }, 1000)
+        video.addEventListener('seeked', () => { clearTimeout(timeout); onSeeked() }, { once: true })
         video.currentTime = t
-        setTimeout(resolve, 1000)
       })
 
       const totalDuration = segments.reduce((acc, [s, e]) => acc + (e - s), 0)
       let animScale = 1, animFX = 0.5, animFY = 0.5
+
+      // Warn if user hides the tab (RAF stops, recording freezes)
+      onVisibilityChange = () => {
+        if (document.hidden) toast.warning('Keep this tab active during export!', { id: 'export-tab-warn' })
+      }
+      document.addEventListener('visibilitychange', onVisibilityChange)
 
       setExportProgress({ phase: 'encoding', percent: 10 })
 
@@ -351,21 +360,41 @@ export default function VideoEditor({ videoData, onBack }) {
       }
 
       // Real-time playback recording — play each segment, composite via RAF
+      // Speed regions are honoured via video.playbackRate per segment
+      let segIdx = 0
       for (const [segStart, segEnd] of segments) {
+        if (cancelExportRef.current) break
+
+        // Compute dominant speed for this segment (use first overlapping speed region)
+        const segMidMs = ((segStart + segEnd) / 2) * 1000
+        const activeSpeed = speedRegions.find(r => segMidMs >= r.startMs && segMidMs <= r.endMs)
+        const playbackRate = activeSpeed ? activeSpeed.speed : 1
+
+        const priorDuration = segments.slice(0, segIdx).reduce((a, [s, e]) => a + (e - s), 0)
+        segIdx++
+
         await seekTo(segStart)
+        if (cancelExportRef.current) break
 
         await new Promise((resolve, reject) => {
           let rafId
+
           const onTimeUpdate = () => {
+            if (cancelExportRef.current) {
+              video.pause()
+              video.removeEventListener('timeupdate', onTimeUpdate)
+              cancelAnimationFrame(rafId)
+              resolve()
+              return
+            }
             const elapsed = video.currentTime - segStart
-            const overallElapsed = segments
-              .slice(0, segments.indexOf(segments.find(s => s[0] === segStart)))
-              .reduce((a, [s, e]) => a + (e - s), 0) + elapsed
+            const overallElapsed = priorDuration + elapsed
             const pct = 10 + Math.round((overallElapsed / totalDuration) * 85)
             setExportProgress({ phase: 'encoding', percent: Math.min(95, pct) })
 
             if (video.currentTime >= segEnd - 0.05) {
               video.pause()
+              video.playbackRate = 1
               video.removeEventListener('timeupdate', onTimeUpdate)
               cancelAnimationFrame(rafId)
               drawCompositeFrame()
@@ -379,13 +408,26 @@ export default function VideoEditor({ videoData, onBack }) {
             rafId = requestAnimationFrame(rafLoop)
           }
 
-          video.addEventListener('timeupdate', onTimeUpdate)
-          video.onerror = (e) => { cancelAnimationFrame(rafId); reject(e) }
+          const onVideoError = (e) => { cancelAnimationFrame(rafId); reject(e) }
 
+          video.addEventListener('timeupdate', onTimeUpdate)
+          video.addEventListener('error', onVideoError, { once: true })
+
+          video.playbackRate = playbackRate
           video.play().then(() => {
             rafId = requestAnimationFrame(rafLoop)
           }).catch(reject)
         })
+      }
+
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+
+      if (cancelExportRef.current) {
+        cancelExportRef.current = false
+        recorder.stop()
+        setExportError('Export cancelled')
+        setIsExporting(false)
+        return
       }
 
       setExportProgress({ phase: 'finalizing', percent: 96 })
@@ -439,49 +481,74 @@ export default function VideoEditor({ videoData, onBack }) {
       toast.success('Video exported!')
       setTimeout(() => setShowExport(false), 2500)
     } catch (err) {
+      if (onVisibilityChange) document.removeEventListener('visibilitychange', onVisibilityChange)
       console.error('Export failed:', err)
       setExportError(err?.message || 'Export failed')
       toast.error('Export failed: ' + (err?.message || 'Unknown error'))
     } finally {
+      cancelExportRef.current = false
+      video.playbackRate = 1
       setIsExporting(false)
       if (video) { video.currentTime = 0; if (wasPlaying) video.play().catch(() => {}) }
     }
-  }, [videoRef, trimRegions, zoomRegions, duration, background, padding, borderRadius, shadowIntensity, aspectRatio])
+  }, [videoRef, trimRegions, speedRegions, zoomRegions, duration, background, padding, borderRadius, shadowIntensity, aspectRatio])
 
   return (
     <div className="flex flex-col h-screen bg-[#080809] text-slate-200 overflow-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>
       {/* Top Bar */}
-      <div className="flex-shrink-0 h-12 flex items-center justify-between px-4 border-b border-white/[0.06] bg-[#080809]/95 backdrop-blur-md z-50">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onBack}
-            className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-white hover:bg-white/8 transition-all"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
-          <div className="w-px h-4 bg-white/10" />
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-lg bg-[#34B27B] flex items-center justify-center shadow-md shadow-[#34B27B]/30">
-              <Video className="w-3.5 h-3.5 text-white" strokeWidth={2.5} />
+      {!isPreview && (
+        <div className="flex-shrink-0 h-12 flex items-center justify-between px-4 border-b border-white/[0.06] bg-[#080809]/95 backdrop-blur-md z-50">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onBack}
+              className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-white hover:bg-white/8 transition-all"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <div className="w-px h-4 bg-white/10" />
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-lg bg-[#34B27B] flex items-center justify-center shadow-md shadow-[#34B27B]/30">
+                <Video className="w-3.5 h-3.5 text-white" strokeWidth={2.5} />
+              </div>
+              <span className="text-sm font-semibold text-white tracking-tight">Vibe ScreenDemo</span>
             </div>
-            <span className="text-sm font-semibold text-white tracking-tight">Vibe ScreenDemo</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsPreview(true)}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:border-white/20 text-xs font-semibold transition-all"
+            >
+              <Expand className="w-3.5 h-3.5" />
+              Preview
+            </button>
+            <button
+              onClick={handleExport}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#34B27B] hover:bg-[#2d9e6c] text-white text-xs font-semibold transition-all shadow-lg shadow-[#34B27B]/20 active:scale-95"
+            >
+              <Download className="w-3.5 h-3.5" />
+              Export MP4
+            </button>
           </div>
         </div>
+      )}
+
+      {/* Preview mode exit button */}
+      {isPreview && (
         <button
-          onClick={handleExport}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#34B27B] hover:bg-[#2d9e6c] text-white text-xs font-semibold transition-all shadow-lg shadow-[#34B27B]/20 active:scale-95"
+          onClick={() => setIsPreview(false)}
+          className="absolute top-4 right-4 z-50 flex items-center gap-2 px-3 py-2 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 text-slate-300 hover:text-white text-xs font-semibold transition-all"
         >
-          <Download className="w-3.5 h-3.5" />
-          Export MP4
+          <Shrink className="w-3.5 h-3.5" />
+          Exit Preview
         </button>
-      </div>
+      )}
 
       {/* Main layout */}
-      <div className="flex-1 flex min-h-0 p-3 gap-3">
+      <div className={isPreview ? 'flex-1 flex min-h-0' : 'flex-1 flex min-h-0 p-3 gap-3'}>
         {/* Left: Video + Timeline */}
         <div className="flex-1 flex flex-col gap-3 min-w-0">
           {/* Video Preview */}
-          <div className="flex-1 min-h-0 rounded-2xl border border-white/[0.06] bg-black/20 overflow-hidden flex items-center justify-center">
+          <div className={isPreview ? 'relative flex-1 min-h-0 overflow-hidden flex items-center justify-center' : 'flex-1 min-h-0 rounded-2xl border border-white/[0.06] bg-black/20 overflow-hidden flex items-center justify-center'}>
             <VideoPreview
               videoRef={videoRef}
               videoUrl={videoUrl}
@@ -503,20 +570,35 @@ export default function VideoEditor({ videoData, onBack }) {
               selectedZoomId={selectedRegionType === 'zoom' ? selectedRegionId : null}
               onSelectZoom={(id) => handleSelectRegion(id, 'zoom')}
             />
+            {/* Floating playback controls in preview mode */}
+            {isPreview && (
+              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-full max-w-xl px-6 z-40">
+                <PlaybackControls
+                  isPlaying={isPlaying}
+                  currentTime={currentTime}
+                  duration={duration}
+                  onTogglePlayPause={togglePlayPause}
+                  onSeek={handleSeek}
+                />
+              </div>
+            )}
           </div>
 
           {/* Playback Controls */}
-          <div className="flex-shrink-0">
-            <PlaybackControls
-              isPlaying={isPlaying}
-              currentTime={currentTime}
-              duration={duration}
-              onTogglePlayPause={togglePlayPause}
-              onSeek={handleSeek}
-            />
-          </div>
+          {!isPreview && (
+            <div className="flex-shrink-0">
+              <PlaybackControls
+                isPlaying={isPlaying}
+                currentTime={currentTime}
+                duration={duration}
+                onTogglePlayPause={togglePlayPause}
+                onSeek={handleSeek}
+              />
+            </div>
+          )}
 
           {/* Timeline */}
+          {!isPreview && (
           <div className="flex-shrink-0 h-52 rounded-2xl border border-white/[0.06] bg-[#0c0c0e] overflow-hidden">
             <Timeline
               duration={duration}
@@ -537,9 +619,11 @@ export default function VideoEditor({ videoData, onBack }) {
               onDeleteRegion={handleDeleteRegion}
             />
           </div>
+          )}
         </div>
 
         {/* Right: Settings Panel */}
+        {!isPreview && (
         <div className="w-[280px] flex-shrink-0">
           <SettingsPanel
             background={background}
@@ -563,6 +647,7 @@ export default function VideoEditor({ videoData, onBack }) {
             onExport={handleExport}
           />
         </div>
+        )}
       </div>
 
       <Toaster theme="dark" position="bottom-right" />
@@ -573,7 +658,7 @@ export default function VideoEditor({ videoData, onBack }) {
         progress={exportProgress}
         isExporting={isExporting}
         error={exportError}
-        onCancel={() => setShowExport(false)}
+        onCancel={() => { cancelExportRef.current = true }}
       />
     </div>
   )
