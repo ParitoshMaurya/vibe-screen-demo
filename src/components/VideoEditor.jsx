@@ -287,7 +287,7 @@ export default function VideoEditor({ videoData, onBack }) {
         const src = audioCtx.createMediaElementSource(video)
         const dest = audioCtx.createMediaStreamDestination()
         src.connect(dest)
-        src.connect(audioCtx.destination) // keep audio playing through speakers during export
+        // Do NOT connect to audioCtx.destination — keeps audio silent to user during export
         dest.stream.getAudioTracks().forEach(t => canvasStream.addTrack(t))
       } catch {
         // Video has no audio or AudioContext unavailable — proceed with video only
@@ -509,7 +509,7 @@ export default function VideoEditor({ videoData, onBack }) {
   }, [videoRef, trimRegions, speedRegions, zoomRegions, duration, background, padding, borderRadius, shadowIntensity, aspectRatio])
 
   return (
-    <div className="flex flex-col h-screen bg-[#080809] text-slate-200 overflow-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>
+    <div className="flex flex-col h-screen bg-[#080809] text-slate-200 overflow-hidden" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
       {/* Top Bar */}
       {!isPreview && (
         <div className="flex-shrink-0 h-12 flex items-center justify-between px-4 border-b border-white/[0.06] bg-[#080809]/95 backdrop-blur-md z-50">
