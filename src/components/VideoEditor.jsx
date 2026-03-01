@@ -47,6 +47,8 @@ export default function VideoEditor({ videoData, onBack }) {
   const [selectedRegionId, setSelectedRegionId] = useState(null)
   const [selectedRegionType, setSelectedRegionType] = useState(null)
 
+  const [aspectRatio, setAspectRatio] = useState('auto')
+
   const [showExport, setShowExport] = useState(false)
   const [exportProgress, setExportProgress] = useState(null)
   const [isExporting, setIsExporting] = useState(false)
@@ -217,19 +219,21 @@ export default function VideoEditor({ videoData, onBack }) {
       return
     }
 
-    try {
-      // --- Phase 1: Canvas-capture approach for background compositing ---
-      setExportProgress({ phase: 'preparing', percent: 10 })
+    const wasPlaying = !video.paused
+    video.pause()
 
+    try {
       const ZOOM_SCALES_MAP = { 1: 1.25, 2: 1.5, 3: 1.8, 4: 2.2, 5: 3.5, 6: 5.0 }
       const FPS = 30
       const vw = video.videoWidth || 1280
       const vh = video.videoHeight || 720
-      const aspect = vw / vh
+      const naturalAspect = vw / vh
+      const forcedAR = aspectRatio !== 'auto' ? aspectRatio : null
+      const outAspect = forcedAR ?? naturalAspect
       const OUT_W = Math.min(vw, 1920)
-      const OUT_H = Math.round(OUT_W / aspect)
+      const OUT_H = Math.round(OUT_W / outAspect)
 
-      // Build sorted trim keep-segments
+      // Build trim keep-segments
       const sortedTrims = [...trimRegions].sort((a, b) => a.startMs - b.startMs)
       const keepSegments = []
       let prev = 0
@@ -240,7 +244,21 @@ export default function VideoEditor({ videoData, onBack }) {
       if (prev < duration) keepSegments.push([prev, duration])
       const segments = keepSegments.length > 0 ? keepSegments : [[0, duration]]
 
-      // Preload background image if needed
+      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+        ? 'video/webm;codecs=vp9'
+        : MediaRecorder.isTypeSupported('video/webm;codecs=vp8')
+          ? 'video/webm;codecs=vp8'
+          : 'video/webm'
+
+      // Compute padded video draw rect (letterboxed at natural ratio)
+      const pad = (padding / 100) * Math.min(OUT_W, OUT_H) * 0.45
+      let drawW = OUT_W - pad * 2
+      let drawH = drawW / naturalAspect
+      if (drawH > OUT_H - pad * 2) { drawH = OUT_H - pad * 2; drawW = drawH * naturalAspect }
+      const drawX = (OUT_W - drawW) / 2
+      const drawY = (OUT_H - drawH) / 2
+
+      // Preload background image
       let bgImg = null
       const isImgBg = background && (background.startsWith('data:') || background.startsWith('http') || background.startsWith('/'))
       if (isImgBg) {
@@ -252,163 +270,183 @@ export default function VideoEditor({ videoData, onBack }) {
         })
       }
 
-      // Offscreen canvas for compositing
+      // Main-thread HTMLCanvasElement — reliable captureStream + compositing
       const offCanvas = document.createElement('canvas')
       offCanvas.width = OUT_W
       offCanvas.height = OUT_H
       const ctx = offCanvas.getContext('2d')
-
       const stream = offCanvas.captureStream(FPS)
-
-      // Capture audio from video element if available
-      let audioTrack = null
-      try {
-        if (video.captureStream) {
-          const vs = video.captureStream()
-          const at = vs.getAudioTracks()[0]
-          if (at) { audioTrack = at; stream.addTrack(at) }
-        }
-      } catch { /* no audio */ }
-
-      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
-        ? 'video/webm;codecs=vp9'
-        : 'video/webm'
 
       const chunks = []
       const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 8_000_000 })
       recorder.ondataavailable = e => { if (e.data?.size > 0) chunks.push(e.data) }
-
       recorder.start(100)
-
-      const pad = (padding / 100) * Math.min(OUT_W, OUT_H) * 0.45
-      let drawW = OUT_W - pad * 2
-      let drawH = drawW / aspect
-      if (drawH > OUT_H - pad * 2) { drawH = OUT_H - pad * 2; drawW = drawH * aspect }
-      const drawX = (OUT_W - drawW) / 2
-      const drawY = (OUT_H - drawH) / 2
-
-      const totalFrames = segments.reduce((acc, [s, e]) => acc + Math.round((e - s) * FPS), 0)
-      let framesRendered = 0
-      let animScale = 1, animFX = 0.5, animFY = 0.5
 
       const drawBg = () => {
         if (bgImg) {
           ctx.drawImage(bgImg, 0, 0, OUT_W, OUT_H)
+          return
+        }
+        const bg = background
+        const isGrad = bg && (bg.startsWith('linear-gradient') || bg.startsWith('radial-gradient'))
+        if (isGrad) {
+          try {
+            const stops = bg.match(/#[0-9a-fA-F]{3,8}|rgba?\([^)]+\)/g) || []
+            let grad
+            if (bg.startsWith('linear-gradient')) {
+              grad = ctx.createLinearGradient(0, 0, OUT_W, OUT_H)
+            } else {
+              grad = ctx.createRadialGradient(OUT_W / 2, OUT_H / 2, 0, OUT_W / 2, OUT_H / 2, Math.max(OUT_W, OUT_H) * 0.7)
+            }
+            stops.forEach((c, i) => grad.addColorStop(i / Math.max(stops.length - 1, 1), c))
+            ctx.fillStyle = grad
+          } catch { ctx.fillStyle = '#1a1a2e' }
         } else {
-          const isGrad = background && (background.startsWith('linear-gradient') || background.startsWith('radial-gradient'))
-          if (isGrad) {
-            try {
-              const stops = background.match(/#[0-9a-fA-F]{3,8}|rgba?\([^)]+\)/g) || []
-              let grad
-              if (background.startsWith('linear-gradient')) {
-                grad = ctx.createLinearGradient(0, 0, OUT_W, OUT_H)
-              } else {
-                grad = ctx.createRadialGradient(OUT_W/2, OUT_H/2, 0, OUT_W/2, OUT_H/2, Math.max(OUT_W, OUT_H)*0.7)
-              }
-              stops.forEach((c, i) => grad.addColorStop(i / Math.max(stops.length - 1, 1), c))
-              ctx.fillStyle = grad
-            } catch { ctx.fillStyle = '#1a1a2e' }
-          } else {
-            ctx.fillStyle = background || '#1a1a2e'
-          }
-          ctx.fillRect(0, 0, OUT_W, OUT_H)
+          ctx.fillStyle = bg || '#1a1a2e'
         }
+        ctx.fillRect(0, 0, OUT_W, OUT_H)
       }
 
+      const seekTo = (t) => new Promise((resolve) => {
+        const onSeeked = () => { video.removeEventListener('seeked', onSeeked); resolve() }
+        video.addEventListener('seeked', onSeeked)
+        video.currentTime = t
+        setTimeout(resolve, 1000)
+      })
+
+      const totalDuration = segments.reduce((acc, [s, e]) => acc + (e - s), 0)
+      let animScale = 1, animFX = 0.5, animFY = 0.5
+
+      setExportProgress({ phase: 'encoding', percent: 10 })
+
+      const drawCompositeFrame = () => {
+        const timeMs = video.currentTime * 1000
+        const activeZoom = zoomRegions.find(r => timeMs >= r.startMs && timeMs <= r.endMs) ?? null
+        const targetScale = activeZoom ? (ZOOM_SCALES_MAP[activeZoom.depth] ?? 1.5) : 1
+        const targetFX = activeZoom ? activeZoom.focus.cx : 0.5
+        const targetFY = activeZoom ? activeZoom.focus.cy : 0.5
+        animScale += (targetScale - animScale) * 0.15
+        animFX += (targetFX - animFX) * 0.15
+        animFY += (targetFY - animFY) * 0.15
+
+        ctx.clearRect(0, 0, OUT_W, OUT_H)
+        drawBg()
+
+        ctx.save()
+        if (shadowIntensity > 0) {
+          ctx.shadowColor = `rgba(0,0,0,${Math.min(shadowIntensity * 0.85, 0.85)})`
+          ctx.shadowBlur = shadowIntensity * 50
+          ctx.shadowOffsetY = shadowIntensity * 10
+          ctx.beginPath(); ctx.roundRect(drawX, drawY, drawW, drawH, borderRadius)
+          ctx.fillStyle = 'rgba(0,0,0,0.01)'; ctx.fill()
+          ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0
+        }
+        ctx.beginPath(); ctx.roundRect(drawX, drawY, drawW, drawH, borderRadius); ctx.clip()
+        if (animScale > 1.001) {
+          const px = drawX + drawW * animFX, py = drawY + drawH * animFY
+          ctx.translate(px, py); ctx.scale(animScale, animScale); ctx.translate(-px, -py)
+        }
+        ctx.drawImage(video, drawX, drawY, drawW, drawH)
+        ctx.restore()
+      }
+
+      // Real-time playback recording — play each segment, composite via RAF
       for (const [segStart, segEnd] of segments) {
-        video.currentTime = segStart
-        await new Promise(r => { video.onseeked = r })
+        await seekTo(segStart)
 
-        const segFrames = Math.round((segEnd - segStart) * FPS)
-        for (let f = 0; f < segFrames; f++) {
-          const t = segStart + f / FPS
-          video.currentTime = t
-          await new Promise(r => { video.onseeked = r })
+        await new Promise((resolve, reject) => {
+          let rafId
+          const onTimeUpdate = () => {
+            const elapsed = video.currentTime - segStart
+            const overallElapsed = segments
+              .slice(0, segments.indexOf(segments.find(s => s[0] === segStart)))
+              .reduce((a, [s, e]) => a + (e - s), 0) + elapsed
+            const pct = 10 + Math.round((overallElapsed / totalDuration) * 85)
+            setExportProgress({ phase: 'encoding', percent: Math.min(95, pct) })
 
-          const timeMs = t * 1000
-          const activeZoom = zoomRegions.find(r => timeMs >= r.startMs && timeMs <= r.endMs) ?? null
-          const targetScale = activeZoom ? (ZOOM_SCALES_MAP[activeZoom.depth] ?? 1.5) : 1
-          const targetFX = activeZoom ? activeZoom.focus.cx : 0.5
-          const targetFY = activeZoom ? activeZoom.focus.cy : 0.5
-          animScale += (targetScale - animScale) * 0.15
-          animFX += (targetFX - animFX) * 0.15
-          animFY += (targetFY - animFY) * 0.15
-
-          ctx.clearRect(0, 0, OUT_W, OUT_H)
-          drawBg()
-
-          ctx.save()
-          if (shadowIntensity > 0) {
-            ctx.shadowColor = `rgba(0,0,0,${Math.min(shadowIntensity * 0.85, 0.85)})`
-            ctx.shadowBlur = shadowIntensity * 50
-            ctx.shadowOffsetY = shadowIntensity * 10
-            ctx.beginPath(); ctx.roundRect(drawX, drawY, drawW, drawH, borderRadius)
-            ctx.fillStyle = 'rgba(0,0,0,0.01)'; ctx.fill()
-            ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0
+            if (video.currentTime >= segEnd - 0.05) {
+              video.pause()
+              video.removeEventListener('timeupdate', onTimeUpdate)
+              cancelAnimationFrame(rafId)
+              drawCompositeFrame()
+              resolve()
+            }
           }
-          ctx.beginPath(); ctx.roundRect(drawX, drawY, drawW, drawH, borderRadius); ctx.clip()
-          if (animScale !== 1) {
-            const px = drawX + drawW * animFX, py = drawY + drawH * animFY
-            ctx.translate(px, py); ctx.scale(animScale, animScale); ctx.translate(-px, -py)
+
+          const rafLoop = () => {
+            if (video.paused || video.ended) return
+            drawCompositeFrame()
+            rafId = requestAnimationFrame(rafLoop)
           }
-          ctx.drawImage(video, drawX, drawY, drawW, drawH)
-          ctx.restore()
 
-          framesRendered++
-          const pct = 10 + Math.round((framesRendered / totalFrames) * 75)
-          setExportProgress({ phase: 'encoding', percent: pct })
+          video.addEventListener('timeupdate', onTimeUpdate)
+          video.onerror = (e) => { cancelAnimationFrame(rafId); reject(e) }
 
-          // Throttle to allow canvas stream to capture frames
-          await new Promise(r => setTimeout(r, 1000 / FPS))
-        }
+          video.play().then(() => {
+            rafId = requestAnimationFrame(rafLoop)
+          }).catch(reject)
+        })
       }
+
+      setExportProgress({ phase: 'finalizing', percent: 96 })
 
       recorder.stop()
-      if (audioTrack) audioTrack.stop()
+      await new Promise(r => { recorder.onstop = r })
 
-      await new Promise(r => recorder.onstop = r)
-      setExportProgress({ phase: 'finalizing', percent: 90 })
+      // Fix WebM duration metadata (MediaRecorder omits it)
+      const rawBlob = new Blob(chunks, { type: mimeType })
+      const { default: fixWebmDuration } = await import('fix-webm-duration')
+      const totalDurationMs = segments.reduce((acc, [s, e]) => acc + (e - s) * 1000, 0)
+      const fixedBlob = await fixWebmDuration(rawBlob, totalDurationMs, { logger: false })
 
-      const webmBlob = new Blob(chunks, { type: mimeType })
+      setExportProgress({ phase: 'finalizing', percent: 98 })
 
-      // --- Phase 2: Re-encode to MP4 with ffmpeg.wasm ---
-      const { FFmpeg } = await import('@ffmpeg/ffmpeg')
-      const { fetchFile, toBlobURL } = await import('@ffmpeg/util')
-      const ffmpeg = new FFmpeg()
-      ffmpeg.on('progress', ({ progress }) => {
-        setExportProgress({ phase: 'finalizing', percent: 90 + Math.round(progress * 9) })
-      })
-      const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm'
-      await ffmpeg.load({
-        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-      })
-      await ffmpeg.writeFile('composed.webm', await fetchFile(webmBlob))
-      await ffmpeg.exec(['-i', 'composed.webm', '-c:v', 'libx264', '-preset', 'fast', '-crf', '22', '-movflags', '+faststart', 'output.mp4'])
-
-      const data = await ffmpeg.readFile('output.mp4')
-      const mp4Blob = new Blob([data.buffer], { type: 'video/mp4' })
-      const url = URL.createObjectURL(mp4Blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `vibe-screendemo-${Date.now()}.mp4`
-      a.click()
-      URL.revokeObjectURL(url)
+      // Remux WebM → MP4 via ffmpeg -c copy (no re-encode, instant)
+      // Core served from same-origin public/ffmpeg/ so COOP/COEP headers apply
+      try {
+        const { FFmpeg } = await import('@ffmpeg/ffmpeg')
+        const { fetchFile, toBlobURL } = await import('@ffmpeg/util')
+        const base = window.location.origin
+        const coreURL = await toBlobURL(`${base}/ffmpeg/ffmpeg-core.js`, 'text/javascript')
+        const wasmURL = await toBlobURL(`${base}/ffmpeg/ffmpeg-core.wasm`, 'application/wasm')
+        const ff = new FFmpeg()
+        await ff.load({ coreURL, wasmURL })
+        await ff.writeFile('input.webm', await fetchFile(fixedBlob))
+        const ret = await ff.exec(['-i', 'input.webm', '-c', 'copy', 'output.mp4'])
+        if (ret === 0) {
+          const data = await ff.readFile('output.mp4')
+          const mp4Blob = new Blob([data.buffer], { type: 'video/mp4' })
+          const url = URL.createObjectURL(mp4Blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = `vibe-screendemo-${Date.now()}.mp4`
+          a.click()
+          setTimeout(() => URL.revokeObjectURL(url), 1000)
+        } else {
+          throw new Error(`ffmpeg exited with code ${ret}`)
+        }
+      } catch (ffErr) {
+        console.warn('MP4 remux failed, falling back to WebM:', ffErr)
+        const url = URL.createObjectURL(fixedBlob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `vibe-screendemo-${Date.now()}.webm`
+        a.click()
+        setTimeout(() => URL.revokeObjectURL(url), 1000)
+      }
 
       setExportProgress({ phase: 'done', percent: 100 })
       toast.success('Video exported!')
-      setTimeout(() => setShowExport(false), 2000)
+      setTimeout(() => setShowExport(false), 2500)
     } catch (err) {
       console.error('Export failed:', err)
-      const msg = err?.message || 'Export failed'
-      setExportError(msg)
-      toast.error('Export failed: ' + msg)
+      setExportError(err?.message || 'Export failed')
+      toast.error('Export failed: ' + (err?.message || 'Unknown error'))
     } finally {
       setIsExporting(false)
-      // Restore video position
-      if (video) video.currentTime = 0
+      if (video) { video.currentTime = 0; if (wasPlaying) video.play().catch(() => {}) }
     }
-  }, [videoRef, videoUrl, videoData, trimRegions, zoomRegions, duration, background, padding, borderRadius, shadowIntensity])
+  }, [videoRef, trimRegions, zoomRegions, duration, background, padding, borderRadius, shadowIntensity, aspectRatio])
 
   return (
     <div className="flex flex-col h-screen bg-[#080809] text-slate-200 overflow-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>
@@ -455,6 +493,8 @@ export default function VideoEditor({ videoData, onBack }) {
               trimRegions={trimRegions}
               currentTime={currentTime}
               isPlaying={isPlaying}
+              isExporting={isExporting}
+              aspectRatio={aspectRatio}
               onTimeUpdate={handleTimeUpdate}
               onLoadedMetadata={handleLoadedMetadata}
               onPlay={handlePlayStateChange}
@@ -510,6 +550,8 @@ export default function VideoEditor({ videoData, onBack }) {
             onBorderRadiusChange={setBorderRadius}
             shadowIntensity={shadowIntensity}
             onShadowChange={setShadowIntensity}
+            aspectRatio={aspectRatio}
+            onAspectRatioChange={setAspectRatio}
             selectedZoom={selectedZoom}
             onZoomDepthChange={(depth) => selectedZoom && handleZoomDepthChange(selectedZoom.id, depth)}
             onZoomDelete={() => selectedZoom && handleDeleteRegion(selectedZoom.id, 'zoom')}

@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { Palette, Layers, ZoomIn, Scissors, Gauge, Download, Upload, Image, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
+import { Palette, Layers, ZoomIn, Scissors, Gauge, Download, Upload, Trash2, ChevronDown, ChevronUp, RectangleHorizontal } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Slider } from '@/components/ui/Slider'
 import { Button } from '@/components/ui/Button'
@@ -37,6 +37,16 @@ const ZOOM_DEPTHS = [
 
 const SPEED_OPTIONS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4]
 
+const ASPECT_RATIOS = [
+  { label: 'Auto', value: 'auto' },
+  { label: '16:9', value: 16 / 9 },
+  { label: '4:3', value: 4 / 3 },
+  { label: '1:1', value: 1 },
+  { label: '9:16', value: 9 / 16 },
+  { label: '21:9', value: 21 / 9 },
+  { label: '4:5', value: 4 / 5 },
+]
+
 function Section({ title, SectionIcon, children, defaultOpen = true }) {
   const [open, setOpen] = useState(defaultOpen)
   return (
@@ -61,6 +71,7 @@ export default function SettingsPanel({
   padding, onPaddingChange,
   borderRadius, onBorderRadiusChange,
   shadowIntensity, onShadowChange,
+  aspectRatio, onAspectRatioChange,
   selectedZoom, onZoomDepthChange, onZoomDelete,
   selectedTrim, onTrimDelete,
   selectedSpeed, onSpeedChange, onSpeedDelete,
@@ -160,6 +171,26 @@ export default function SettingsPanel({
               <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
             </div>
           )}
+        </Section>
+
+        {/* Aspect Ratio */}
+        <Section title="Aspect Ratio" SectionIcon={RectangleHorizontal}>
+          <div className="grid grid-cols-4 gap-1.5">
+            {ASPECT_RATIOS.map(({ label, value }) => (
+              <button
+                key={label}
+                onClick={() => onAspectRatioChange(value)}
+                className={cn(
+                  'py-1.5 rounded-lg text-[10px] font-medium border transition-all',
+                  aspectRatio === value
+                    ? 'bg-[#34B27B]/15 border-[#34B27B]/50 text-[#34B27B]'
+                    : 'bg-white/5 border-white/10 text-slate-400 hover:border-white/20 hover:text-white'
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </Section>
 
         {/* Appearance */}
@@ -279,7 +310,7 @@ export default function SettingsPanel({
       <div className="flex-shrink-0 p-4 border-t border-white/5">
         <Button variant="primary" size="lg" onClick={onExport} className="w-full gap-2">
           <Download className="w-4 h-4" />
-          Export MP4
+          Export Video
         </Button>
       </div>
     </div>

@@ -7,9 +7,8 @@ export default function ExportDialog({ isOpen, onClose, progress, isExporting, e
   const isDone = phase === 'done'
   const phaseLabels = {
     preparing: 'Preparing export...',
-    loading: 'Loading FFmpeg engine...',
-    encoding: 'Encoding video...',
-    finalizing: 'Finalizing...',
+    encoding: 'Rendering frames...',
+    finalizing: 'Finalizing video...',
     done: 'Export complete!',
   }
   return (

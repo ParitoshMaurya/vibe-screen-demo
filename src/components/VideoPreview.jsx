@@ -19,6 +19,8 @@ export default function VideoPreview({
   onPause,
   onZoomFocusChange,
   selectedZoomId,
+  isExporting,
+  aspectRatio,
 }) {
   const containerRef = useRef(null)
   const canvasRef = useRef(null)
@@ -35,6 +37,8 @@ export default function VideoPreview({
   const zoomRegionsRef = useRef(zoomRegions)
   const trimRegionsRef = useRef(trimRegions)
   const selectedZoomIdRef = useRef(selectedZoomId)
+  const isExportingRef = useRef(isExporting)
+  const aspectRatioRef = useRef(aspectRatio)
 
   useEffect(() => { backgroundRef.current = background }, [background])
   useEffect(() => { paddingRef.current = padding }, [padding])
@@ -43,6 +47,8 @@ export default function VideoPreview({
   useEffect(() => { zoomRegionsRef.current = zoomRegions }, [zoomRegions])
   useEffect(() => { trimRegionsRef.current = trimRegions }, [trimRegions])
   useEffect(() => { selectedZoomIdRef.current = selectedZoomId }, [selectedZoomId])
+  useEffect(() => { isExportingRef.current = isExporting }, [isExporting])
+  useEffect(() => { aspectRatioRef.current = aspectRatio }, [aspectRatio])
 
   // Preload background image when it's an image URL
   useEffect(() => {
@@ -64,6 +70,8 @@ export default function VideoPreview({
     const video = videoRef.current
     const container = containerRef.current
     if (!canvas || !video || !container) return
+    // Pause rendering during export to prevent flicker from rapid seeks
+    if (isExportingRef.current) return
 
     const W = container.clientWidth
     const H = container.clientHeight
@@ -93,16 +101,16 @@ export default function VideoPreview({
       ctx.fillRect(0, 0, W, H)
     }
 
-    // --- Compute video draw rect ---
+    // --- Compute video draw rect (always at natural ratio — AR only affects canvas shape) ---
     const vw = (video.videoWidth > 0 ? video.videoWidth : 16)
     const vh = (video.videoHeight > 0 ? video.videoHeight : 9)
-    const aspect = vw / vh
+    const naturalAspect = vw / vh
 
     let drawW = W - pad * 2
-    let drawH = drawW / aspect
+    let drawH = drawW / naturalAspect
     if (drawH > H - pad * 2) {
       drawH = H - pad * 2
-      drawW = drawH * aspect
+      drawW = drawH * naturalAspect
     }
     const drawX = (W - drawW) / 2
     const drawY = (H - drawH) / 2
@@ -244,9 +252,25 @@ export default function VideoPreview({
     onZoomFocusChange?.(zoomId, { cx, cy })
   }, [onZoomFocusChange, videoRef])
 
+  // Compute CSS aspect-ratio string for the canvas container
+  const forcedAR = aspectRatio
+  const arStyle = (forcedAR && forcedAR !== 'auto')
+    ? { aspectRatio: String(forcedAR) }
+    : {}
+
   return (
     <div className="relative w-full h-full flex items-center justify-center">
-      <div ref={containerRef} className="relative w-full h-full">
+      <div
+        ref={containerRef}
+        className="relative"
+        style={{
+          ...arStyle,
+          maxWidth: '100%',
+          maxHeight: '100%',
+          width: (forcedAR && forcedAR !== 'auto') ? 'auto' : '100%',
+          height: (forcedAR && forcedAR !== 'auto') ? '100%' : '100%',
+        }}
+      >
         <canvas
           ref={canvasRef}
           className={cn('w-full h-full block', selectedZoomId ? 'cursor-crosshair' : 'cursor-default')}
