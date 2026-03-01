@@ -225,6 +225,7 @@ export default function VideoEditor({ videoData, onBack }) {
     video.pause()
 
     let onVisibilityChange = null
+    let audioCtx = null
     try {
       const ZOOM_SCALES_MAP = { 1: 1.25, 2: 1.5, 3: 1.8, 4: 2.2, 5: 3.5, 6: 5.0 }
       const FPS = 30
@@ -278,8 +279,21 @@ export default function VideoEditor({ videoData, onBack }) {
       offCanvas.width = OUT_W
       offCanvas.height = OUT_H
       const ctx = offCanvas.getContext('2d')
-      const stream = offCanvas.captureStream(FPS)
+      const canvasStream = offCanvas.captureStream(FPS)
 
+      // Extract original video audio and mix into the recording stream
+      try {
+        audioCtx = new AudioContext()
+        const src = audioCtx.createMediaElementSource(video)
+        const dest = audioCtx.createMediaStreamDestination()
+        src.connect(dest)
+        src.connect(audioCtx.destination) // keep audio playing through speakers during export
+        dest.stream.getAudioTracks().forEach(t => canvasStream.addTrack(t))
+      } catch {
+        // Video has no audio or AudioContext unavailable — proceed with video only
+      }
+
+      const stream = canvasStream
       const chunks = []
       const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 8_000_000 })
       recorder.ondataavailable = e => { if (e.data?.size > 0) chunks.push(e.data) }
@@ -488,6 +502,7 @@ export default function VideoEditor({ videoData, onBack }) {
     } finally {
       cancelExportRef.current = false
       video.playbackRate = 1
+      if (audioCtx) audioCtx.close().catch(() => {})
       setIsExporting(false)
       if (video) { video.currentTime = 0; if (wasPlaying) video.play().catch(() => {}) }
     }
