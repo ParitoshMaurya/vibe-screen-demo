@@ -6,10 +6,10 @@ export default function ExportDialog({ isOpen, onClose, progress, isExporting, e
   const phase = progress?.phase ?? 'preparing'
   const isDone = phase === 'done'
   const phaseLabels = {
-    preparing: 'Preparing export...',
-    encoding: 'Rendering frames...',
-    finalizing: 'Finalizing video...',
-    done: 'Export complete!',
+    preparing: 'Warming up the engines — hang tight ✦',
+    encoding: 'Painting every frame with care...',
+    finalizing: 'Wrapping it up like a gift 🎁',
+    done: 'Your masterpiece is ready!',
   }
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center">

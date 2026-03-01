@@ -4,29 +4,8 @@ import VideoPreview from './VideoPreview'
 import Timeline from './Timeline'
 import SettingsPanel from './SettingsPanel'
 import ExportDialog from './ExportDialog'
-import PlaybackControls from './PlaybackControls'
-import { ArrowLeft, Video, Download, Expand, Shrink } from 'lucide-react'
-
-const GRADIENTS = [
-  'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
-  'linear-gradient(135deg, #0f0c29, #302b63, #24243e)',
-  'linear-gradient(135deg, #141e30, #243b55)',
-  'linear-gradient(135deg, #200122, #6f0000)',
-  'linear-gradient(135deg, #0f2027, #203a43, #2c5364)',
-  'linear-gradient(135deg, #1d2b64, #f8cdda)',
-  'linear-gradient(135deg, #11998e, #38ef7d)',
-  'linear-gradient(135deg, #fc4a1a, #f7b733)',
-  'linear-gradient(135deg, #8e2de2, #4a00e0)',
-  'linear-gradient(135deg, #f953c6, #b91d73)',
-  'linear-gradient(135deg, #43cea2, #185a9d)',
-  'linear-gradient(135deg, #f7971e, #ffd200)',
-  '#1a1a1a',
-  '#0d1117',
-  '#0a0a0a',
-  '#1e1b4b',
-  '#14532d',
-  '#450a0a',
-]
+import PlaybackControls, { PlayButton, FullPlaybackControls } from './PlaybackControls'
+import { ArrowLeft, Expand, Shrink } from 'lucide-react'
 
 export default function VideoEditor({ videoData, onBack }) {
   const { url: videoUrl } = videoData
@@ -36,7 +15,7 @@ export default function VideoEditor({ videoData, onBack }) {
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
 
-  const [background, setBackground] = useState(GRADIENTS[0])
+  const [background, setBackground] = useState('url(https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&q=80)')
   const [padding, setPadding] = useState(10)
   const [borderRadius, setBorderRadius] = useState(10)
   const [shadowIntensity, setShadowIntensity] = useState(0.5)
@@ -57,6 +36,23 @@ export default function VideoEditor({ videoData, onBack }) {
   const cancelExportRef = useRef(false)
 
   const nextIdRef = useRef(1)
+
+  // Warn before page unload (refresh / close tab)
+  useEffect(() => {
+    const handler = (e) => {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [])
+
+  // Confirm before navigating back
+  const handleBack = useCallback(() => {
+    if (window.confirm('Leave editor? Any unsaved work will be lost. Make sure to export your video first.')) {
+      onBack()
+    }
+  }, [onBack])
 
   const handleTimeUpdate = useCallback(() => {
     const video = videoRef.current
@@ -264,13 +260,17 @@ export default function VideoEditor({ videoData, onBack }) {
 
       // Preload background image
       let bgImg = null
-      const isImgBg = background && (background.startsWith('data:') || background.startsWith('http') || background.startsWith('/'))
+      let bgSrc = background
+      const urlMatch = bgSrc && bgSrc.match(/^url\((.+)\)$/)
+      if (urlMatch) bgSrc = urlMatch[1]
+      const isImgBg = bgSrc && (bgSrc.startsWith('data:') || bgSrc.startsWith('http') || bgSrc.startsWith('/'))
       if (isImgBg) {
         bgImg = await new Promise((resolve) => {
           const img = new Image()
+          img.crossOrigin = 'anonymous'
           img.onload = () => resolve(img)
           img.onerror = () => resolve(null)
-          img.src = background
+          img.src = bgSrc
         })
       }
 
@@ -510,41 +510,14 @@ export default function VideoEditor({ videoData, onBack }) {
 
   return (
     <div className="flex flex-col h-screen bg-[#080809] text-slate-200 overflow-hidden" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-      {/* Top Bar */}
+      {/* Top-left floating back button (non-preview) */}
       {!isPreview && (
-        <div className="flex-shrink-0 h-13 flex items-center justify-between px-4 border-b border-white/[0.06] bg-[#080809]/95 backdrop-blur-md z-50">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={onBack}
-              className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:text-white hover:bg-white/[0.06] transition-all duration-200 cursor-pointer"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </button>
-            <div className="w-px h-5 bg-white/[0.08]" />
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-[#34B27B] flex items-center justify-center shadow-md shadow-[#34B27B]/20">
-                <Video className="w-3.5 h-3.5 text-white" strokeWidth={2.5} />
-              </div>
-              <span className="text-[13px] font-bold text-white tracking-tight">Vibe ScreenDemo</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-2.5">
-            <button
-              onClick={() => setIsPreview(true)}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-white/[0.08] text-slate-400 hover:text-white hover:border-white/15 hover:bg-white/[0.03] text-xs font-semibold transition-all duration-200 cursor-pointer"
-            >
-              <Expand className="w-3.5 h-3.5" />
-              Preview
-            </button>
-            <button
-              onClick={handleExport}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#34B27B] hover:bg-[#2d9e6c] text-white text-xs font-bold transition-all duration-200 shadow-lg shadow-[#34B27B]/20 active:scale-95 cursor-pointer"
-            >
-              <Download className="w-3.5 h-3.5" />
-              Export MP4
-            </button>
-          </div>
-        </div>
+        <button
+          onClick={handleBack}
+          className="absolute top-4 left-4 z-50 w-8 h-8 flex items-center justify-center rounded-lg bg-black/50 backdrop-blur-sm border border-white/[0.08] text-slate-400 hover:text-white hover:bg-black/70 transition-all duration-200 cursor-pointer"
+        >
+          <ArrowLeft className="w-4 h-4" />
+        </button>
       )}
 
       {/* Preview mode exit button */}
@@ -563,7 +536,7 @@ export default function VideoEditor({ videoData, onBack }) {
         {/* Left: Video + Timeline */}
         <div className="flex-1 flex flex-col gap-3 min-w-0">
           {/* Video Preview */}
-          <div className={isPreview ? 'relative flex-1 min-h-0 overflow-hidden flex items-center justify-center' : 'flex-1 min-h-0 rounded-2xl border border-white/[0.06] bg-black/30 overflow-hidden flex items-center justify-center'}>
+          <div className={isPreview ? 'relative flex-1 min-h-0 overflow-hidden flex items-center justify-center' : 'relative flex-1 min-h-0 rounded-2xl border border-white/[0.06] bg-black/30 overflow-hidden flex items-center justify-center'}>
             <VideoPreview
               videoRef={videoRef}
               videoUrl={videoUrl}
@@ -585,10 +558,26 @@ export default function VideoEditor({ videoData, onBack }) {
               selectedZoomId={selectedRegionType === 'zoom' ? selectedRegionId : null}
               onSelectZoom={(id) => handleSelectRegion(id, 'zoom')}
             />
+            {/* Floating controls in preview area bottom */}
+            {!isPreview && (
+              <div className="absolute bottom-3 left-3 z-40 flex items-center gap-2">
+                <PlayButton
+                  isPlaying={isPlaying}
+                  onTogglePlayPause={togglePlayPause}
+                />
+                <button
+                  onClick={() => setIsPreview(true)}
+                  className="w-8 h-8 rounded-full flex items-center justify-center bg-white/10 backdrop-blur-sm text-slate-300 hover:text-white hover:bg-white/20 transition-all duration-200 cursor-pointer"
+                  title="Preview"
+                >
+                  <Expand className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
             {/* Floating playback controls in preview mode */}
             {isPreview && (
               <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-full max-w-xl px-6 z-40">
-                <PlaybackControls
+                <FullPlaybackControls
                   isPlaying={isPlaying}
                   currentTime={currentTime}
                   duration={duration}
@@ -599,7 +588,7 @@ export default function VideoEditor({ videoData, onBack }) {
             )}
           </div>
 
-          {/* Playback Controls */}
+          {/* Compact Seek Bar */}
           {!isPreview && (
             <div className="flex-shrink-0">
               <PlaybackControls
@@ -614,7 +603,7 @@ export default function VideoEditor({ videoData, onBack }) {
 
           {/* Timeline */}
           {!isPreview && (
-          <div className="flex-shrink-0 h-56 rounded-2xl border border-white/[0.06] bg-[#0b0b0d] overflow-hidden">
+          <div className="flex-shrink-0 h-52 rounded-2xl border border-white/[0.06] bg-[#0b0b0d] overflow-hidden">
             <Timeline
               duration={duration}
               currentTime={currentTime}

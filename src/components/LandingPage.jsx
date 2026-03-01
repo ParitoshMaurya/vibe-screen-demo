@@ -57,7 +57,7 @@ const COMPARISON = [
   { feature: 'No Install Required', us: true, them: false },
   { feature: 'Data Stays Local', us: true, them: false },
   { feature: 'Open Source', us: true, them: false },
-  { feature: 'Price', us: 'Free', them: '$229' },
+  { feature: 'Price', us: 'Free', them: '$89' },
 ]
 
 function useInView(ref, options = {}) {
@@ -162,7 +162,7 @@ export default function LandingPage({ onVideoReady }) {
             <a href="#start" className="hover:text-white transition-colors cursor-pointer">Get Started</a>
           </div>
           <div className="flex items-center gap-3">
-            <a
+            {/* <a
               href="https://github.com"
               target="_blank"
               rel="noopener noreferrer"
@@ -170,7 +170,7 @@ export default function LandingPage({ onVideoReady }) {
               aria-label="GitHub"
             >
               <Github className="w-4.5 h-4.5" />
-            </a>
+            </a> */}
             <button
               onClick={toggleRecording}
               className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl bg-[#34B27B] hover:bg-[#2d9e6c] text-white text-sm font-semibold transition-all shadow-lg shadow-[#34B27B]/20 cursor-pointer active:scale-95"
@@ -499,7 +499,7 @@ export default function LandingPage({ onVideoReady }) {
             <span className="inline-block text-xs font-semibold text-[#818CF8] uppercase tracking-[0.2em] mb-4">Honest comparison</span>
             <h2 className="text-4xl md:text-5xl font-extrabold text-white tracking-tight mb-5">
               Same features.{' '}
-              <span className="line-through text-slate-600 decoration-red-400/60">$229</span>{' '}
+              <span className="line-through text-slate-600 decoration-red-400/60">$89</span>{' '}
               <span className="text-[#34B27B]">$0.</span>
             </h2>
             <p className="text-slate-400 max-w-md mx-auto text-lg">
@@ -678,11 +678,11 @@ export default function LandingPage({ onVideoReady }) {
           <p className="text-xs text-slate-600 flex items-center gap-1.5">
             Built with <Heart className="w-3 h-3 text-red-400 fill-red-400" /> · Works best on desktop Chrome / Edge
           </p>
-          <div className="flex items-center gap-4">
+          {/* <div className="flex items-center gap-4">
             <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="text-slate-600 hover:text-white transition-colors cursor-pointer">
               <Github className="w-4.5 h-4.5" />
             </a>
-          </div>
+          </div> */}
         </div>
       </footer>
     </div>

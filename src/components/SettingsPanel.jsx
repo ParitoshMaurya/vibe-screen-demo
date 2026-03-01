@@ -26,6 +26,17 @@ const SOLID_COLORS = [
   '#0c4a6e', '#365314', '#3b0764', '#4a044e',
 ]
 
+const WALLPAPERS = [
+  'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&q=80',
+  'https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=800&q=80',
+  'https://images.unsplash.com/photo-1557682250-33bd709cbe85?w=800&q=80',
+  'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=800&q=80',
+  'https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?w=800&q=80',
+  'https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?w=800&q=80',
+  'https://images.unsplash.com/photo-1614854262318-831574f15f1f?w=800&q=80',
+  'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=800&q=80',
+]
+
 const ZOOM_DEPTHS = [
   { depth: 1, label: '1.25×' },
   { depth: 2, label: '1.5×' },
@@ -80,7 +91,7 @@ export default function SettingsPanel({
   selectedSpeed, onSpeedChange, onSpeedDelete,
   onExport,
 }) {
-  const [bgTab, setBgTab] = useState('gradient')
+  const [bgTab, setBgTab] = useState('custom')
   const fileInputRef = useRef(null)
 
   const handleImageUpload = (e) => {
@@ -110,7 +121,7 @@ export default function SettingsPanel({
         {/* Background */}
         <Section title="Background" SectionIcon={Palette}>
           <div className="flex gap-0.5 mb-3 bg-white/[0.04] p-0.5 rounded-lg">
-            {['gradient', 'solid', 'custom'].map(tab => (
+            {['custom', 'gradient', 'solid'].map(tab => (
               <button
                 key={tab}
                 onClick={() => setBgTab(tab)}
@@ -157,17 +168,30 @@ export default function SettingsPanel({
           )}
 
           {bgTab === 'custom' && (
-            <div className="space-y-2">
+            <div className="space-y-3">
+              <div className="grid grid-cols-4 gap-2">
+                {WALLPAPERS.map((url, i) => (
+                  <button
+                    key={i}
+                    onClick={() => onBackgroundChange(`url(${url})`)}
+                    className={cn(
+                      'aspect-[4/3] rounded-xl border-2 transition-all duration-200 cursor-pointer hover:scale-105 bg-cover bg-center',
+                      background === `url(${url})` ? 'border-[#34B27B] scale-105 shadow-lg shadow-[#34B27B]/15' : 'border-white/[0.06] hover:border-white/20'
+                    )}
+                    style={{ backgroundImage: `url(${url})` }}
+                  />
+                ))}
+              </div>
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl border border-dashed border-white/15 hover:border-[#34B27B]/40 text-slate-400 hover:text-[#34B27B] text-xs transition-all duration-200 cursor-pointer"
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-white/15 hover:border-[#34B27B]/40 text-slate-400 hover:text-[#34B27B] text-[10px] font-medium transition-all duration-200 cursor-pointer"
               >
-                <Upload className="w-4 h-4" />
-                Upload image background
+                <Upload className="w-3.5 h-3.5" />
+                Upload your own
               </button>
               {background?.startsWith('data:') && (
                 <div
-                  className="w-full h-16 rounded-lg border border-[#34B27B]/40 bg-cover bg-center"
+                  className="w-full h-14 rounded-lg border border-[#34B27B]/40 bg-cover bg-center"
                   style={{ backgroundImage: `url(${background})` }}
                 />
               )}
@@ -177,7 +201,7 @@ export default function SettingsPanel({
         </Section>
 
         {/* Aspect Ratio */}
-        <Section title="Aspect Ratio" SectionIcon={RectangleHorizontal}>
+        <Section title="Aspect Ratio" SectionIcon={RectangleHorizontal} defaultOpen={false}>
           <div className="grid grid-cols-3 gap-1.5">
             {ASPECT_RATIOS.map(({ label, value }) => (
               <button

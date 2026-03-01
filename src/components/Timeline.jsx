@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useMemo } from 'react'
-import { ZoomIn, Scissors, Gauge, Plus, Trash2 } from 'lucide-react'
+import { ZoomIn, Scissors, Gauge, Plus, Trash2, Minus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 function formatTime(s) {
@@ -61,11 +61,11 @@ function TimelineRegion({ region, type, duration, isSelected, onSelect, onSpanCh
   return (
     <div
       className={cn(
-        'absolute top-1.5 bottom-1.5 rounded-lg border flex items-center overflow-hidden cursor-grab active:cursor-grabbing select-none transition-all duration-150 hover:brightness-125',
+        'absolute top-1 bottom-1 rounded-md border flex items-center overflow-hidden cursor-grab active:cursor-grabbing select-none transition-all duration-150 hover:brightness-125',
         colors.bg, colors.border,
         isSelected ? colors.selected : 'hover:ring-1 hover:ring-white/10'
       )}
-      style={{ left: `${startPct * 100}%`, width: `${(endPct - startPct) * 100}%`, minWidth: 28 }}
+      style={{ left: `${startPct * 100}%`, width: `${(endPct - startPct) * 100}%`, minWidth: 24 }}
       onClick={(e) => { e.stopPropagation(); onSelect(region.id, type) }}
       onMouseDown={(e) => handleMouseDown(e, 'move')}
     >
@@ -105,7 +105,9 @@ export default function Timeline({
   onDeleteRegion,
 }) {
   const trackRef = useRef(null)
+  const scrollContainerRef = useRef(null)
   const [activeMode, setActiveMode] = useState('zoom')
+  const [timelineZoom, setTimelineZoom] = useState(1)
 
   const playheadPct = duration > 0 ? (currentTime / duration) * 100 : 0
 
@@ -142,12 +144,20 @@ export default function Timeline({
 
   const markers = useMemo(() => {
     if (duration <= 0) return []
-    const count = 8
+    const count = Math.max(4, Math.round(8 * timelineZoom))
     return Array.from({ length: count + 1 }, (_, i) => ({
       pct: i / count,
       time: (i / count) * duration,
     }))
-  }, [duration])
+  }, [duration, timelineZoom])
+
+  const handleZoomIn = useCallback(() => {
+    setTimelineZoom(prev => Math.min(prev * 1.5, 6))
+  }, [])
+
+  const handleZoomOut = useCallback(() => {
+    setTimelineZoom(prev => Math.max(prev / 1.5, 1))
+  }, [])
 
   const rows = [
     { id: 'zoom', label: 'Zoom', IconComp: ZoomIn, regions: zoomRegions, onSpanChange: onZoomSpanChange, color: 'text-[#34B27B]' },
@@ -183,7 +193,7 @@ export default function Timeline({
                   : 'text-slate-500 hover:text-slate-300 border-transparent'
               )}
             >
-              <BtnIcon className="w-3.5 h-3.5" />
+              <BtnIcon className="w-3.5 h-3.5" strokeWidth={2} />
               {label}
             </button>
           ))}
@@ -199,33 +209,62 @@ export default function Timeline({
             Delete
           </button>
         )}
-      </div>
-
-      {/* Time axis */}
-      <div className="relative h-6 flex-shrink-0 border-b border-white/[0.06] bg-white/[0.01]" style={{ marginLeft: 72 }}>
-        {markers.map(({ pct, time }) => (
-          <div
-            key={pct}
-            className="absolute top-0 bottom-0 flex flex-col items-center"
-            style={{ left: `${pct * 100}%` }}
+        <div className="w-px h-4 bg-white/[0.06]" />
+        <div className="flex items-center gap-0.5">
+          <button
+            onClick={handleZoomOut}
+            disabled={timelineZoom <= 1}
+            className={cn(
+              'w-6 h-6 flex items-center justify-center rounded-md transition-all duration-150 cursor-pointer',
+              timelineZoom <= 1 ? 'text-slate-700 cursor-not-allowed' : 'text-slate-500 hover:text-white hover:bg-white/[0.06]'
+            )}
+            title="Zoom out timeline"
           >
-            <div className="w-px h-2.5 bg-white/[0.08] mt-1" />
-            <span className="text-[10px] text-slate-500 tabular-nums mt-0.5 font-medium">{formatTime(time)}</span>
-          </div>
-        ))}
+            <Minus className="w-3 h-3" />
+          </button>
+          <span className="text-[9px] text-slate-500 tabular-nums w-7 text-center font-medium">{timelineZoom.toFixed(1)}×</span>
+          <button
+            onClick={handleZoomIn}
+            disabled={timelineZoom >= 6}
+            className={cn(
+              'w-6 h-6 flex items-center justify-center rounded-md transition-all duration-150 cursor-pointer',
+              timelineZoom >= 6 ? 'text-slate-700 cursor-not-allowed' : 'text-slate-500 hover:text-white hover:bg-white/[0.06]'
+            )}
+            title="Zoom in timeline"
+          >
+            <Plus className="w-3 h-3" />
+          </button>
+        </div>
       </div>
 
-      {/* Track rows */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar">
+      {/* Scrollable time axis + track rows (synced scroll) */}
+      <div className="flex-1 overflow-x-auto overflow-y-hidden hide-scrollbar" ref={scrollContainerRef}>
+        {/* Time axis */}
+        <div className="relative h-5 flex-shrink-0 border-b border-white/[0.06] bg-white/[0.01]" style={{ marginLeft: 56 }}>
+          <div className="relative h-full" style={{ width: `${timelineZoom * 100}%` }}>
+            {markers.map(({ pct, time }) => (
+              <div
+                key={pct}
+                className="absolute top-0 bottom-0 flex flex-col items-center"
+                style={{ left: `${pct * 100}%` }}
+              >
+                <div className="w-px h-2 bg-white/[0.08] mt-0.5" />
+                <span className="text-[9px] text-slate-500 tabular-nums mt-0.5 font-medium">{formatTime(time)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Track rows */}
         {rows.map(({ id, label, IconComp, regions, onSpanChange, color }) => (
           <div key={id} className={cn(
-            'flex items-stretch border-b border-white/[0.04] h-12 transition-colors duration-150',
+            'flex items-stretch border-b border-white/[0.04] h-9 transition-colors duration-150',
             id === activeMode ? 'bg-white/[0.015]' : 'hover:bg-white/[0.008]'
           )}>
-            {/* Row label */}
-            <div className="w-[72px] flex-shrink-0 flex items-center gap-2 px-3 border-r border-white/[0.06]">
-              <IconComp className={cn('w-3.5 h-3.5', color)} />
-              <span className={cn('text-[11px] font-medium', id === activeMode ? 'text-slate-300' : 'text-slate-500')}>{label}</span>
+            {/* Row label — sticky left */}
+            <div className="w-14 flex-shrink-0 flex items-center gap-1 px-2 pl-1 border-r border-white/[0.06] sticky left-0 z-10 bg-[#0b0b0d]">
+              <IconComp className={cn('w-3 h-3 flex-shrink-0', color)} strokeWidth={2} />
+              <span className={cn('text-[10px] font-medium', id === activeMode ? 'text-slate-300' : 'text-slate-500')}>{label}</span>
             </div>
             {/* Track area */}
             <div
@@ -235,6 +274,7 @@ export default function Timeline({
                 'relative flex-1',
                 id === activeMode ? 'cursor-crosshair' : 'cursor-default'
               )}
+              style={{ minWidth: `${timelineZoom * 100}%` }}
               onClick={id === activeMode ? handleTrackClick : undefined}
             >
               {(regions || []).map((region) => (
@@ -249,19 +289,22 @@ export default function Timeline({
                   onDelete={onDeleteRegion}
                 />
               ))}
-              {/* Playhead line */}
+              {/* Playhead line — draggable, expands on hover */}
               <div
-                className="absolute top-0 bottom-0 w-px bg-white/70 pointer-events-none z-20"
-                style={{ left: `${playheadPct}%` }}
-              />
+                className="absolute top-0 bottom-0 z-20 group/playhead cursor-ew-resize flex items-center justify-center"
+                style={{ left: `${playheadPct}%`, transform: 'translateX(-50%)', width: 12 }}
+                onMouseDown={handlePlayheadDrag}
+              >
+                <div className="w-px group-hover/playhead:w-[3px] h-full bg-white/70 group-hover/playhead:bg-white transition-all duration-150 rounded-full" />
+              </div>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Playhead scrubber */}
-      <div className="flex-shrink-0 border-t border-white/[0.06] bg-white/[0.01]" style={{ paddingLeft: 72 }}>
-        <div className="relative h-7 flex items-center px-0">
+      {/* Playhead scrubber — commented out for now */}
+      {/* <div className="flex-shrink-0 border-t border-white/[0.06] bg-white/[0.01]" style={{ paddingLeft: 56 }}>
+        <div className="relative h-6 flex items-center px-0">
           <div className="absolute left-0 right-0 h-[3px] bg-white/[0.06] rounded-full overflow-hidden">
             <div className="h-full bg-[#34B27B]/50 rounded-full transition-none" style={{ width: `${playheadPct}%` }} />
           </div>
@@ -280,7 +323,7 @@ export default function Timeline({
             className="absolute inset-0 w-full opacity-0 cursor-pointer z-10"
           />
         </div>
-      </div>
+      </div> */}
     </div>
   )
 }

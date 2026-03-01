@@ -52,11 +52,15 @@ export default function VideoPreview({
 
   // Preload background image when it's an image URL
   useEffect(() => {
-    const bg = background
+    let bg = background
+    // Extract URL from css url(...) wrapper
+    const urlMatch = bg && bg.match(/^url\((.+)\)$/)
+    if (urlMatch) bg = urlMatch[1]
     const isImg = bg && (bg.startsWith('data:') || bg.startsWith('http') || bg.startsWith('/'))
     if (isImg && bg !== bgImageUrlRef.current) {
       bgImageUrlRef.current = bg
       const img = new Image()
+      img.crossOrigin = 'anonymous'
       img.onload = () => { bgImageRef.current = img }
       img.src = bg
     } else if (!isImg) {

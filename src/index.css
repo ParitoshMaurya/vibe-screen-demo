@@ -42,6 +42,14 @@ body {
   background: rgba(255,255,255,0.2);
 }
 
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 .timeline-track {
   position: relative;
   height: 32px;
