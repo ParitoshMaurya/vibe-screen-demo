@@ -512,33 +512,33 @@ export default function VideoEditor({ videoData, onBack }) {
     <div className="flex flex-col h-screen bg-[#080809] text-slate-200 overflow-hidden" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
       {/* Top Bar */}
       {!isPreview && (
-        <div className="flex-shrink-0 h-12 flex items-center justify-between px-4 border-b border-white/[0.06] bg-[#080809]/95 backdrop-blur-md z-50">
+        <div className="flex-shrink-0 h-13 flex items-center justify-between px-4 border-b border-white/[0.06] bg-[#080809]/95 backdrop-blur-md z-50">
           <div className="flex items-center gap-3">
             <button
               onClick={onBack}
-              className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-white hover:bg-white/8 transition-all"
+              className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:text-white hover:bg-white/[0.06] transition-all duration-200 cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
-            <div className="w-px h-4 bg-white/10" />
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-lg bg-[#34B27B] flex items-center justify-center shadow-md shadow-[#34B27B]/30">
+            <div className="w-px h-5 bg-white/[0.08]" />
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-[#34B27B] flex items-center justify-center shadow-md shadow-[#34B27B]/20">
                 <Video className="w-3.5 h-3.5 text-white" strokeWidth={2.5} />
               </div>
-              <span className="text-sm font-semibold text-white tracking-tight">Vibe ScreenDemo</span>
+              <span className="text-[13px] font-bold text-white tracking-tight">Vibe ScreenDemo</span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <button
               onClick={() => setIsPreview(true)}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:border-white/20 text-xs font-semibold transition-all"
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-white/[0.08] text-slate-400 hover:text-white hover:border-white/15 hover:bg-white/[0.03] text-xs font-semibold transition-all duration-200 cursor-pointer"
             >
               <Expand className="w-3.5 h-3.5" />
               Preview
             </button>
             <button
               onClick={handleExport}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#34B27B] hover:bg-[#2d9e6c] text-white text-xs font-semibold transition-all shadow-lg shadow-[#34B27B]/20 active:scale-95"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#34B27B] hover:bg-[#2d9e6c] text-white text-xs font-bold transition-all duration-200 shadow-lg shadow-[#34B27B]/20 active:scale-95 cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
               Export MP4
@@ -551,7 +551,7 @@ export default function VideoEditor({ videoData, onBack }) {
       {isPreview && (
         <button
           onClick={() => setIsPreview(false)}
-          className="absolute top-4 right-4 z-50 flex items-center gap-2 px-3 py-2 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 text-slate-300 hover:text-white text-xs font-semibold transition-all"
+          className="absolute top-4 right-4 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-black/70 backdrop-blur-xl border border-white/[0.08] text-slate-300 hover:text-white text-xs font-semibold transition-all duration-200 cursor-pointer hover:bg-black/80"
         >
           <Shrink className="w-3.5 h-3.5" />
           Exit Preview
@@ -563,7 +563,7 @@ export default function VideoEditor({ videoData, onBack }) {
         {/* Left: Video + Timeline */}
         <div className="flex-1 flex flex-col gap-3 min-w-0">
           {/* Video Preview */}
-          <div className={isPreview ? 'relative flex-1 min-h-0 overflow-hidden flex items-center justify-center' : 'flex-1 min-h-0 rounded-2xl border border-white/[0.06] bg-black/20 overflow-hidden flex items-center justify-center'}>
+          <div className={isPreview ? 'relative flex-1 min-h-0 overflow-hidden flex items-center justify-center' : 'flex-1 min-h-0 rounded-2xl border border-white/[0.06] bg-black/30 overflow-hidden flex items-center justify-center'}>
             <VideoPreview
               videoRef={videoRef}
               videoUrl={videoUrl}
@@ -614,7 +614,7 @@ export default function VideoEditor({ videoData, onBack }) {
 
           {/* Timeline */}
           {!isPreview && (
-          <div className="flex-shrink-0 h-52 rounded-2xl border border-white/[0.06] bg-[#0c0c0e] overflow-hidden">
+          <div className="flex-shrink-0 h-56 rounded-2xl border border-white/[0.06] bg-[#0b0b0d] overflow-hidden">
             <Timeline
               duration={duration}
               currentTime={currentTime}

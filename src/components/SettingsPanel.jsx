@@ -49,18 +49,22 @@ const ASPECT_RATIOS = [
 function Section({ title, SectionIcon, children, defaultOpen = true }) {
   const [open, setOpen] = useState(defaultOpen)
   return (
-    <div className="border-b border-white/5">
+    <div className="border-b border-white/[0.06]">
       <button
         onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/[0.02] transition-colors"
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/[0.03] transition-colors cursor-pointer"
       >
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           {SectionIcon && <SectionIcon className="w-3.5 h-3.5 text-slate-500" />}
-          <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider">{title}</span>
+          <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-widest">{title}</span>
         </div>
-        {open ? <ChevronUp className="w-3.5 h-3.5 text-slate-600" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-600" />}
+        <div className={cn('w-5 h-5 flex items-center justify-center rounded-md transition-colors', open ? 'bg-white/[0.05]' : '')}>
+          {open ? <ChevronUp className="w-3 h-3 text-slate-500" /> : <ChevronDown className="w-3 h-3 text-slate-500" />}
+        </div>
       </button>
-      {open && <div className="px-4 pb-4">{children}</div>}
+      <div className={cn('overflow-hidden transition-all duration-200', open ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0')}>
+        <div className="px-4 pb-4">{children}</div>
+      </div>
     </div>
   )
 }
@@ -96,23 +100,23 @@ export default function SettingsPanel({
   }
 
   return (
-    <div className="h-full flex flex-col bg-[#0d0d0f] border border-white/5 rounded-2xl overflow-hidden">
-      <div className="flex-shrink-0 px-4 py-3 border-b border-white/5">
-        <h2 className="text-sm font-semibold text-white">Settings</h2>
+    <div className="h-full flex flex-col bg-[#0d0d0f]/90 backdrop-blur-sm border border-white/[0.06] rounded-2xl overflow-hidden">
+      <div className="flex-shrink-0 px-4 py-3 border-b border-white/[0.06]">
+        <h2 className="text-[13px] font-bold text-white tracking-tight">Settings</h2>
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar">
 
         {/* Background */}
         <Section title="Background" SectionIcon={Palette}>
-          <div className="flex gap-1 mb-3 bg-white/5 p-0.5 rounded-lg">
+          <div className="flex gap-0.5 mb-3 bg-white/[0.04] p-0.5 rounded-lg">
             {['gradient', 'solid', 'custom'].map(tab => (
               <button
                 key={tab}
                 onClick={() => setBgTab(tab)}
                 className={cn(
-                  'flex-1 py-1 text-[10px] font-medium rounded-md transition-all capitalize',
-                  bgTab === tab ? 'bg-white text-black' : 'text-slate-400 hover:text-white'
+                  'flex-1 py-1.5 text-[10px] font-semibold rounded-md transition-all duration-200 capitalize cursor-pointer',
+                  bgTab === tab ? 'bg-white/[0.12] text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'
                 )}
               >
                 {tab}
@@ -121,14 +125,14 @@ export default function SettingsPanel({
           </div>
 
           {bgTab === 'gradient' && (
-            <div className="grid grid-cols-6 gap-1.5">
+            <div className="grid grid-cols-4 gap-2">
               {GRADIENTS.map((g, i) => (
                 <button
                   key={i}
                   onClick={() => onBackgroundChange(g)}
                   className={cn(
-                    'aspect-square rounded-lg border-2 transition-all',
-                    background === g ? 'border-[#34B27B] scale-110' : 'border-transparent hover:border-white/30'
+                    'aspect-[4/3] rounded-xl border-2 transition-all duration-200 cursor-pointer hover:scale-105',
+                    background === g ? 'border-[#34B27B] scale-105 shadow-lg shadow-[#34B27B]/15' : 'border-white/[0.06] hover:border-white/20'
                   )}
                   style={{ background: g }}
                 />
@@ -137,14 +141,14 @@ export default function SettingsPanel({
           )}
 
           {bgTab === 'solid' && (
-            <div className="grid grid-cols-6 gap-1.5">
+            <div className="grid grid-cols-4 gap-2">
               {SOLID_COLORS.map((c) => (
                 <button
                   key={c}
                   onClick={() => onBackgroundChange(c)}
                   className={cn(
-                    'aspect-square rounded-lg border-2 transition-all',
-                    background === c ? 'border-[#34B27B] scale-110' : 'border-transparent hover:border-white/30'
+                    'aspect-[4/3] rounded-xl border-2 transition-all duration-200 cursor-pointer hover:scale-105',
+                    background === c ? 'border-[#34B27B] scale-105 shadow-lg shadow-[#34B27B]/15' : 'border-white/[0.06] hover:border-white/20'
                   )}
                   style={{ background: c }}
                 />
@@ -156,7 +160,7 @@ export default function SettingsPanel({
             <div className="space-y-2">
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-dashed border-white/20 hover:border-white/40 text-slate-400 hover:text-white text-xs transition-all"
+                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl border border-dashed border-white/15 hover:border-[#34B27B]/40 text-slate-400 hover:text-[#34B27B] text-xs transition-all duration-200 cursor-pointer"
               >
                 <Upload className="w-4 h-4" />
                 Upload image background
@@ -174,16 +178,16 @@ export default function SettingsPanel({
 
         {/* Aspect Ratio */}
         <Section title="Aspect Ratio" SectionIcon={RectangleHorizontal}>
-          <div className="grid grid-cols-4 gap-1.5">
+          <div className="grid grid-cols-3 gap-1.5">
             {ASPECT_RATIOS.map(({ label, value }) => (
               <button
                 key={label}
                 onClick={() => onAspectRatioChange(value)}
                 className={cn(
-                  'py-1.5 rounded-lg text-[10px] font-medium border transition-all',
+                  'py-2 rounded-lg text-[11px] font-semibold border transition-all duration-200 cursor-pointer',
                   aspectRatio === value
-                    ? 'bg-[#34B27B]/15 border-[#34B27B]/50 text-[#34B27B]'
-                    : 'bg-white/5 border-white/10 text-slate-400 hover:border-white/20 hover:text-white'
+                    ? 'bg-[#34B27B]/15 border-[#34B27B]/40 text-[#34B27B] shadow-sm shadow-[#34B27B]/10'
+                    : 'bg-white/[0.03] border-white/[0.08] text-slate-400 hover:border-white/15 hover:text-white'
                 )}
               >
                 {label}
@@ -240,10 +244,10 @@ export default function SettingsPanel({
                       key={depth}
                       onClick={() => onZoomDepthChange(depth)}
                       className={cn(
-                        'py-1.5 rounded-lg text-xs font-medium border transition-all',
+                        'py-2 rounded-lg text-[11px] font-semibold border transition-all duration-200 cursor-pointer',
                         selectedZoom.depth === depth
-                          ? 'bg-[#34B27B]/15 border-[#34B27B]/50 text-[#34B27B]'
-                          : 'bg-white/5 border-white/10 text-slate-400 hover:border-white/20 hover:text-white'
+                          ? 'bg-[#34B27B]/15 border-[#34B27B]/40 text-[#34B27B]'
+                          : 'bg-white/[0.03] border-white/[0.08] text-slate-400 hover:border-white/15 hover:text-white'
                       )}
                     >
                       {label}
@@ -285,10 +289,10 @@ export default function SettingsPanel({
                       key={s}
                       onClick={() => onSpeedChange(s)}
                       className={cn(
-                        'py-1.5 rounded-lg text-xs font-medium border transition-all',
+                        'py-2 rounded-lg text-[11px] font-semibold border transition-all duration-200 cursor-pointer',
                         selectedSpeed.speed === s
-                          ? 'bg-amber-500/15 border-amber-500/50 text-amber-400'
-                          : 'bg-white/5 border-white/10 text-slate-400 hover:border-white/20 hover:text-white'
+                          ? 'bg-amber-500/15 border-amber-500/40 text-amber-400'
+                          : 'bg-white/[0.03] border-white/[0.08] text-slate-400 hover:border-white/15 hover:text-white'
                       )}
                     >
                       {s}×
@@ -306,11 +310,12 @@ export default function SettingsPanel({
       </div>
 
       {/* Export button */}
-      <div className="flex-shrink-0 p-4 border-t border-white/5">
-        <Button variant="primary" size="lg" onClick={onExport} className="w-full gap-2">
+      <div className="flex-shrink-0 p-4 border-t border-white/[0.06] bg-white/[0.01]">
+        <Button variant="primary" size="lg" onClick={onExport} className="w-full gap-2 shadow-lg shadow-[#34B27B]/15">
           <Download className="w-4 h-4" />
           Export Video
         </Button>
+        <p className="text-[10px] text-slate-600 text-center mt-2">Exports as MP4 · processed locally</p>
       </div>
     </div>
   )

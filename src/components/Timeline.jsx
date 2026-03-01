@@ -10,9 +10,9 @@ function formatTime(s) {
 }
 
 const REGION_COLORS = {
-  zoom: { bg: 'bg-[#34B27B]/25', border: 'border-[#34B27B]/60', text: 'text-[#34B27B]', selected: 'ring-1 ring-[#34B27B]' },
-  trim: { bg: 'bg-red-500/20', border: 'border-red-500/50', text: 'text-red-400', selected: 'ring-1 ring-red-500' },
-  speed: { bg: 'bg-amber-500/20', border: 'border-amber-500/50', text: 'text-amber-400', selected: 'ring-1 ring-amber-500' },
+  zoom: { bg: 'bg-[#34B27B]/20', border: 'border-[#34B27B]/50', text: 'text-[#34B27B]', selected: 'ring-2 ring-[#34B27B]/80 shadow-[0_0_8px_rgba(52,178,123,0.25)]' },
+  trim: { bg: 'bg-red-500/15', border: 'border-red-500/40', text: 'text-red-400', selected: 'ring-2 ring-red-500/80 shadow-[0_0_8px_rgba(239,68,68,0.2)]' },
+  speed: { bg: 'bg-amber-500/15', border: 'border-amber-500/40', text: 'text-amber-400', selected: 'ring-2 ring-amber-500/80 shadow-[0_0_8px_rgba(245,158,11,0.2)]' },
 }
 
 function TimelineRegion({ region, type, duration, isSelected, onSelect, onSpanChange }) {
@@ -61,25 +61,25 @@ function TimelineRegion({ region, type, duration, isSelected, onSelect, onSpanCh
   return (
     <div
       className={cn(
-        'absolute top-1 bottom-1 rounded-md border flex items-center overflow-hidden cursor-grab active:cursor-grabbing select-none transition-shadow',
+        'absolute top-1.5 bottom-1.5 rounded-lg border flex items-center overflow-hidden cursor-grab active:cursor-grabbing select-none transition-all duration-150 hover:brightness-125',
         colors.bg, colors.border,
-        isSelected && colors.selected
+        isSelected ? colors.selected : 'hover:ring-1 hover:ring-white/10'
       )}
-      style={{ left: `${startPct * 100}%`, width: `${(endPct - startPct) * 100}%`, minWidth: 24 }}
+      style={{ left: `${startPct * 100}%`, width: `${(endPct - startPct) * 100}%`, minWidth: 28 }}
       onClick={(e) => { e.stopPropagation(); onSelect(region.id, type) }}
       onMouseDown={(e) => handleMouseDown(e, 'move')}
     >
       {/* Left resize handle */}
       <div
-        className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-white/20 rounded-l-md z-10"
+        className="absolute left-0 top-0 bottom-0 w-2.5 cursor-ew-resize hover:bg-white/15 rounded-l-lg z-10 transition-colors"
         onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, 'left') }}
       />
-      <span className={cn('text-[10px] font-medium px-2 truncate pointer-events-none', colors.text)}>
-        {type === 'speed' ? `${region.speed}×` : type === 'zoom' ? `${['1.25','1.5','1.8','2.2','3.5','5'][region.depth-1]}×` : 'Trim'}
+      <span className={cn('text-[10px] font-semibold px-2.5 truncate pointer-events-none tracking-wide', colors.text)}>
+        {type === 'speed' ? `${region.speed}×` : type === 'zoom' ? `${['1.25','1.5','1.8','2.2','3.5','5'][region.depth-1]}×` : 'Cut'}
       </span>
       {/* Right resize handle */}
       <div
-        className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-white/20 rounded-r-md z-10"
+        className="absolute right-0 top-0 bottom-0 w-2.5 cursor-ew-resize hover:bg-white/15 rounded-r-lg z-10 transition-colors"
         onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, 'right') }}
       />
     </div>
@@ -166,48 +166,51 @@ export default function Timeline({
   return (
     <div className="flex flex-col h-full select-none">
       {/* Toolbar */}
-      <div className="flex items-center gap-1.5 px-3 py-2 border-b border-white/5 flex-shrink-0">
-        <span className="text-[10px] text-slate-500 mr-1">Add:</span>
-        {[
-          { id: 'zoom', label: 'Zoom', BtnIcon: ZoomIn, color: 'hover:text-[#34B27B] hover:bg-[#34B27B]/10', activeColor: 'text-[#34B27B] bg-[#34B27B]/10' },
-          { id: 'trim', label: 'Trim', BtnIcon: Scissors, color: 'hover:text-red-400 hover:bg-red-500/10', activeColor: 'text-red-400 bg-red-500/10' },
-          { id: 'speed', label: 'Speed', BtnIcon: Gauge, color: 'hover:text-amber-400 hover:bg-amber-500/10', activeColor: 'text-amber-400 bg-amber-500/10' },
-        ].map(({ id, label, BtnIcon, color, activeColor }) => (
-          <button
-            key={id}
-            onClick={() => setActiveMode(id)}
-            className={cn(
-              'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all text-slate-400',
-              activeMode === id ? activeColor : color
-            )}
-          >
-            <BtnIcon className="w-3.5 h-3.5" />
-            {label}
-          </button>
-        ))}
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-white/[0.06] flex-shrink-0">
+        <div className="flex items-center gap-0.5 bg-white/[0.04] p-0.5 rounded-lg">
+          {[
+            { id: 'zoom', label: 'Zoom', BtnIcon: ZoomIn, activeBg: 'bg-[#34B27B]/15', activeText: 'text-[#34B27B]', activeBorder: 'border-[#34B27B]/30' },
+            { id: 'trim', label: 'Trim', BtnIcon: Scissors, activeBg: 'bg-red-500/15', activeText: 'text-red-400', activeBorder: 'border-red-500/30' },
+            { id: 'speed', label: 'Speed', BtnIcon: Gauge, activeBg: 'bg-amber-500/15', activeText: 'text-amber-400', activeBorder: 'border-amber-500/30' },
+          ].map(({ id, label, BtnIcon, activeBg, activeText, activeBorder }) => (
+            <button
+              key={id}
+              onClick={() => setActiveMode(id)}
+              className={cn(
+                'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all duration-200 cursor-pointer border',
+                activeMode === id
+                  ? `${activeBg} ${activeText} ${activeBorder}`
+                  : 'text-slate-500 hover:text-slate-300 border-transparent'
+              )}
+            >
+              <BtnIcon className="w-3.5 h-3.5" />
+              {label}
+            </button>
+          ))}
+        </div>
+        <span className="text-[10px] text-slate-600 hidden sm:inline">Click on track to add</span>
         <div className="flex-1" />
         {selectedRegionId && (
           <button
             onClick={() => onDeleteRegion(selectedRegionId, selectedRegionType)}
-            className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-red-400 hover:bg-red-500/10 transition-all"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium text-red-400 hover:bg-red-500/10 transition-all cursor-pointer border border-transparent hover:border-red-500/20"
           >
-            <Trash2 className="w-3 h-3" />
+            <Trash2 className="w-3.5 h-3.5" />
             Delete
           </button>
         )}
-        <span className="text-[10px] text-slate-600 ml-2">Click track to add region</span>
       </div>
 
       {/* Time axis */}
-      <div className="relative h-5 flex-shrink-0 border-b border-white/5 px-16">
+      <div className="relative h-6 flex-shrink-0 border-b border-white/[0.06] bg-white/[0.01]" style={{ marginLeft: 72 }}>
         {markers.map(({ pct, time }) => (
           <div
             key={pct}
             className="absolute top-0 bottom-0 flex flex-col items-center"
             style={{ left: `${pct * 100}%` }}
           >
-            <div className="w-px h-2 bg-white/10 mt-1" />
-            <span className="text-[9px] text-slate-600 tabular-nums mt-0.5">{formatTime(time)}</span>
+            <div className="w-px h-2.5 bg-white/[0.08] mt-1" />
+            <span className="text-[10px] text-slate-500 tabular-nums mt-0.5 font-medium">{formatTime(time)}</span>
           </div>
         ))}
       </div>
@@ -215,19 +218,22 @@ export default function Timeline({
       {/* Track rows */}
       <div className="flex-1 overflow-y-auto custom-scrollbar">
         {rows.map(({ id, label, IconComp, regions, onSpanChange, color }) => (
-          <div key={id} className="flex items-stretch border-b border-white/[0.04] h-10">
+          <div key={id} className={cn(
+            'flex items-stretch border-b border-white/[0.04] h-12 transition-colors duration-150',
+            id === activeMode ? 'bg-white/[0.015]' : 'hover:bg-white/[0.008]'
+          )}>
             {/* Row label */}
-            <div className="w-16 flex-shrink-0 flex items-center gap-1.5 px-2 border-r border-white/5">
-              <IconComp className={cn('w-3 h-3', color)} />
-              <span className="text-[10px] text-slate-500">{label}</span>
+            <div className="w-[72px] flex-shrink-0 flex items-center gap-2 px-3 border-r border-white/[0.06]">
+              <IconComp className={cn('w-3.5 h-3.5', color)} />
+              <span className={cn('text-[11px] font-medium', id === activeMode ? 'text-slate-300' : 'text-slate-500')}>{label}</span>
             </div>
             {/* Track area */}
             <div
               ref={id === activeMode ? trackRef : null}
               data-timeline-track
               className={cn(
-                'relative flex-1 cursor-crosshair',
-                id === activeMode && 'hover:bg-white/[0.02]'
+                'relative flex-1',
+                id === activeMode ? 'cursor-crosshair' : 'cursor-default'
               )}
               onClick={id === activeMode ? handleTrackClick : undefined}
             >
@@ -243,9 +249,9 @@ export default function Timeline({
                   onDelete={onDeleteRegion}
                 />
               ))}
-              {/* Playhead */}
+              {/* Playhead line */}
               <div
-                className="absolute top-0 bottom-0 w-px bg-[#34B27B]/80 pointer-events-none z-20"
+                className="absolute top-0 bottom-0 w-px bg-white/70 pointer-events-none z-20"
                 style={{ left: `${playheadPct}%` }}
               />
             </div>
@@ -254,11 +260,13 @@ export default function Timeline({
       </div>
 
       {/* Playhead scrubber */}
-      <div className="flex-shrink-0 px-16 py-1.5 border-t border-white/5">
-        <div className="relative h-4 flex items-center">
-          <div className="absolute left-0 right-0 h-px bg-white/10" />
+      <div className="flex-shrink-0 border-t border-white/[0.06] bg-white/[0.01]" style={{ paddingLeft: 72 }}>
+        <div className="relative h-7 flex items-center px-0">
+          <div className="absolute left-0 right-0 h-[3px] bg-white/[0.06] rounded-full overflow-hidden">
+            <div className="h-full bg-[#34B27B]/50 rounded-full transition-none" style={{ width: `${playheadPct}%` }} />
+          </div>
           <div
-            className="absolute top-0 bottom-0 w-3 h-3 bg-[#34B27B] rounded-full cursor-ew-resize shadow-md border-2 border-[#09090b] -mt-0.5"
+            className="absolute w-3.5 h-3.5 bg-[#34B27B] rounded-full cursor-ew-resize shadow-lg shadow-[#34B27B]/30 border-2 border-[#0c0c0e] z-20 hover:scale-125 transition-transform"
             style={{ left: `${playheadPct}%`, transform: 'translateX(-50%)' }}
             onMouseDown={handlePlayheadDrag}
           />
