@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { useScreenRecorder } from '@/hooks/useScreenRecorder'
 import { cn } from '@/lib/utils'
+import { WALLPAPERS } from '@/lib/config'
 
 const FEATURES = [
   {
@@ -162,15 +163,15 @@ export default function LandingPage({ onVideoReady }) {
             <a href="#start" className="hover:text-white transition-colors cursor-pointer">Get Started</a>
           </div>
           <div className="flex items-center gap-3">
-            {/* <a
-              href="https://github.com"
+            <a
+              href="https://github.com/ParitoshMaurya/vibe-screen-demo"
               target="_blank"
               rel="noopener noreferrer"
               className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-500 hover:text-white hover:bg-white/[0.06] transition-all cursor-pointer"
               aria-label="GitHub"
             >
               <Github className="w-4.5 h-4.5" />
-            </a> */}
+            </a>
             <button
               onClick={toggleRecording}
               className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl bg-[#34B27B] hover:bg-[#2d9e6c] text-white text-sm font-semibold transition-all shadow-lg shadow-[#34B27B]/20 cursor-pointer active:scale-95"
@@ -288,14 +289,22 @@ export default function LandingPage({ onVideoReady }) {
               </div>
               <div className="flex-1 flex justify-center">
                 <div className="px-4 py-1 rounded-lg bg-white/[0.04] border border-white/[0.06] text-xs text-slate-500 font-mono">
-                  vibe-screendemo.app
+                  vibe-screen-demo.vercel.app
                 </div>
               </div>
             </div>
             {/* Mockup content */}
-            <div className="relative aspect-[16/9.5] bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] flex items-center justify-center overflow-hidden">
+            <div className="relative aspect-[1400/656] bg-black overflow-hidden">
+              <video
+                src="/screen-vibe-demo.mp4"
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="w-full h-full object-contain"
+              />
               {/* Simulated video editor UI */}
-              <div className="absolute inset-4 md:inset-8 flex flex-col gap-3">
+              <div className="hidden absolute inset-4 md:inset-8 flex flex-col gap-3">
                 {/* Top bar mock */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -466,7 +475,7 @@ export default function LandingPage({ onVideoReady }) {
                 <Check className="w-4 h-4" />
                 With Vibe ScreenDemo
               </div>
-              <div className="aspect-video rounded-xl bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] border border-white/[0.08] flex items-center justify-center overflow-hidden shadow-xl shadow-[#0f3460]/20">
+              <div className="aspect-video rounded-xl border border-white/[0.08] flex items-center justify-center overflow-hidden shadow-xl shadow-black/20" style={{ backgroundImage: `url(${WALLPAPERS[0]})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
                 <div className="w-[70%] h-[65%] bg-slate-900/80 rounded-lg border border-white/[0.08] shadow-2xl shadow-black/40 relative">
                   <div className="h-5 bg-slate-800/60 border-b border-white/[0.06] flex items-center px-2.5 rounded-t-lg">
                     <div className="flex gap-1"><div className="w-1.5 h-1.5 rounded-full bg-[#ff5f57]" /><div className="w-1.5 h-1.5 rounded-full bg-[#ffbd2e]" /><div className="w-1.5 h-1.5 rounded-full bg-[#28c840]" /></div>
@@ -678,11 +687,11 @@ export default function LandingPage({ onVideoReady }) {
           <p className="text-xs text-slate-600 flex items-center gap-1.5">
             Built with <Heart className="w-3 h-3 text-red-400 fill-red-400" /> · Works best on desktop Chrome / Edge
           </p>
-          {/* <div className="flex items-center gap-4">
-            <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="text-slate-600 hover:text-white transition-colors cursor-pointer">
+          <div className="flex items-center gap-4">
+            <a href="https://github.com/ParitoshMaurya/vibe-screen-demo" target="_blank" rel="noopener noreferrer" className="text-slate-600 hover:text-white transition-colors cursor-pointer">
               <Github className="w-4.5 h-4.5" />
             </a>
-          </div> */}
+          </div>
         </div>
       </footer>
     </div>
