@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils'
 import { Slider } from '@/components/ui/Slider'
 import { Button } from '@/components/ui/Button'
 import { toast } from 'sonner'
+import { WALLPAPERS } from '../lib/config'
 
 const GRADIENTS = [
   'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
@@ -24,17 +25,6 @@ const SOLID_COLORS = [
   '#09090b', '#0d1117', '#1a1a1a', '#0a0a0a',
   '#1e1b4b', '#14532d', '#450a0a', '#1c1917',
   '#0c4a6e', '#365314', '#3b0764', '#4a044e',
-]
-
-const WALLPAPERS = [
-  'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&q=80',
-  'https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=800&q=80',
-  'https://images.unsplash.com/photo-1557682250-33bd709cbe85?w=800&q=80',
-  'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=800&q=80',
-  'https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?w=800&q=80',
-  'https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?w=800&q=80',
-  'https://images.unsplash.com/photo-1614854262318-831574f15f1f?w=800&q=80',
-  'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=800&q=80',
 ]
 
 const ZOOM_DEPTHS = [
@@ -90,6 +80,7 @@ export default function SettingsPanel({
   selectedTrim, onTrimDelete,
   selectedSpeed, onSpeedChange, onSpeedDelete,
   onExport,
+  exportQuality, onExportQualityChange, qualityPresets,
 }) {
   const [bgTab, setBgTab] = useState('custom')
   const fileInputRef = useRef(null)
@@ -333,13 +324,35 @@ export default function SettingsPanel({
         )}
       </div>
 
-      {/* Export button */}
-      <div className="flex-shrink-0 p-4 border-t border-white/[0.06] bg-white/[0.01]">
+      {/* Export section */}
+      <div className="flex-shrink-0 p-4 border-t border-white/[0.06] bg-white/[0.01] space-y-3">
+        {qualityPresets && (
+          <div>
+            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5 block">Quality</span>
+            <div className="grid grid-cols-4 gap-1">
+              {Object.entries(qualityPresets).map(([key, preset]) => (
+                <button
+                  key={key}
+                  onClick={() => onExportQualityChange(key)}
+                  className={cn(
+                    'py-1.5 rounded-lg text-[10px] font-semibold border transition-all duration-200 cursor-pointer',
+                    exportQuality === key
+                      ? 'bg-[#34B27B]/15 border-[#34B27B]/40 text-[#34B27B]'
+                      : 'bg-white/[0.03] border-white/[0.08] text-slate-500 hover:border-white/15 hover:text-slate-300'
+                  )}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-[9px] text-slate-600 mt-1">{qualityPresets[exportQuality]?.desc}</p>
+          </div>
+        )}
         <Button variant="primary" size="lg" onClick={onExport} className="w-full gap-2 shadow-lg shadow-[#34B27B]/15">
           <Download className="w-4 h-4" />
           Export Video
         </Button>
-        <p className="text-[10px] text-slate-600 text-center mt-2">Exports as MP4 · processed locally</p>
+        <p className="text-[10px] text-slate-600 text-center">Exports as MP4 · processed locally</p>
       </div>
     </div>
   )

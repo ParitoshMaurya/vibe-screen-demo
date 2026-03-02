@@ -6,6 +6,14 @@ import SettingsPanel from './SettingsPanel'
 import ExportDialog from './ExportDialog'
 import PlaybackControls, { PlayButton, FullPlaybackControls } from './PlaybackControls'
 import { ArrowLeft, Expand, Shrink } from 'lucide-react'
+import { WALLPAPERS } from '../lib/config'
+
+const QUALITY_PRESETS = {
+  low:    { label: 'Low',    maxW: 1280, fps: 24, bitrate: 4_000_000,  desc: '720p · 24fps · 4 Mbps' },
+  medium: { label: 'Medium', maxW: 1920, fps: 30, bitrate: 8_000_000,  desc: '1080p · 30fps · 8 Mbps' },
+  high:   { label: 'High',   maxW: 1920, fps: 30, bitrate: 16_000_000, desc: '1080p · 30fps · 16 Mbps' },
+  ultra:  { label: 'Ultra',  maxW: 3840, fps: 60, bitrate: 32_000_000, desc: '4K · 60fps · 32 Mbps' },
+}
 
 export default function VideoEditor({ videoData, onBack }) {
   const { url: videoUrl } = videoData
@@ -15,7 +23,7 @@ export default function VideoEditor({ videoData, onBack }) {
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
 
-  const [background, setBackground] = useState('url(https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&q=80)')
+  const [background, setBackground] = useState(WALLPAPERS[0])
   const [padding, setPadding] = useState(10)
   const [borderRadius, setBorderRadius] = useState(10)
   const [shadowIntensity, setShadowIntensity] = useState(0.5)
@@ -33,6 +41,7 @@ export default function VideoEditor({ videoData, onBack }) {
   const [exportProgress, setExportProgress] = useState(null)
   const [isExporting, setIsExporting] = useState(false)
   const [exportError, setExportError] = useState(null)
+  const [exportQuality, setExportQuality] = useState('high')
   const cancelExportRef = useRef(false)
 
   const nextIdRef = useRef(1)
@@ -224,13 +233,14 @@ export default function VideoEditor({ videoData, onBack }) {
     let audioCtx = null
     try {
       const ZOOM_SCALES_MAP = { 1: 1.25, 2: 1.5, 3: 1.8, 4: 2.2, 5: 3.5, 6: 5.0 }
-      const FPS = 30
+      const qp = QUALITY_PRESETS[exportQuality] || QUALITY_PRESETS.high
+      const FPS = qp.fps
       const vw = video.videoWidth || 1280
       const vh = video.videoHeight || 720
       const naturalAspect = vw / vh
       const forcedAR = aspectRatio !== 'auto' ? aspectRatio : null
       const outAspect = forcedAR ?? naturalAspect
-      const OUT_W = Math.min(vw, 1920)
+      const OUT_W = Math.min(vw, qp.maxW)
       const OUT_H = Math.round(OUT_W / outAspect)
 
       // Build trim keep-segments
@@ -295,7 +305,7 @@ export default function VideoEditor({ videoData, onBack }) {
 
       const stream = canvasStream
       const chunks = []
-      const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 8_000_000 })
+      const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: qp.bitrate })
       recorder.ondataavailable = e => { if (e.data?.size > 0) chunks.push(e.data) }
       recorder.start(100)
 
@@ -506,7 +516,7 @@ export default function VideoEditor({ videoData, onBack }) {
       setIsExporting(false)
       if (video) { video.currentTime = 0; if (wasPlaying) video.play().catch(() => {}) }
     }
-  }, [videoRef, trimRegions, speedRegions, zoomRegions, duration, background, padding, borderRadius, shadowIntensity, aspectRatio])
+  }, [videoRef, trimRegions, speedRegions, zoomRegions, duration, background, padding, borderRadius, shadowIntensity, aspectRatio, exportQuality])
 
   return (
     <div className="flex flex-col h-screen bg-[#080809] text-slate-200 overflow-hidden" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
@@ -649,6 +659,9 @@ export default function VideoEditor({ videoData, onBack }) {
             onSpeedChange={(speed) => selectedSpeed && handleSpeedChange(selectedSpeed.id, speed)}
             onSpeedDelete={() => selectedSpeed && handleDeleteRegion(selectedSpeed.id, 'speed')}
             onExport={handleExport}
+            exportQuality={exportQuality}
+            onExportQualityChange={setExportQuality}
+            qualityPresets={QUALITY_PRESETS}
           />
         </div>
         )}
