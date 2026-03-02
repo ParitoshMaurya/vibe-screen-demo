@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "prebuild": "mkdir -p public/ffmpeg && cp node_modules/@ffmpeg/core/dist/umd/ffmpeg-core.js public/ffmpeg/ && cp node_modules/@ffmpeg/core/dist/umd/ffmpeg-core.wasm public/ffmpeg/",
+    "prebuild": "mkdir -p public/ffmpeg && cp node_modules/@ffmpeg/core/dist/esm/ffmpeg-core.js public/ffmpeg/ && cp node_modules/@ffmpeg/core/dist/esm/ffmpeg-core.wasm public/ffmpeg/",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"
